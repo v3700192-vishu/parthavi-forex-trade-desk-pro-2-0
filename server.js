@@ -22,6 +22,11 @@ const INTERVALS = new Map([
 ]);
 const QUOTE_CACHE_MS = 4000;
 const CANDLE_CACHE_MS = 60000;
+const ECB_REFERENCE_BASE = 'https://api.frankfurter.dev';
+const REFERENCE_CURRENCIES = ['USD','GBP','JPY','CHF','AUD','NZD','CAD'];
+const REFERENCE_PAIRS = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD'];
+const REFERENCE_CACHE_MS = 15 * 60 * 1000;
+let referenceCache = null;
 const quoteCache = new Map();
 const candleCache = new Map();
 const requestWindows = new Map();
@@ -135,6 +140,89 @@ async function getQuote(pair) {
     const e=new Error('invalid_quote_fields');e.statusCode=422;throw e;
   }
   quoteCache.set(cacheKey,{at:Date.now(),value:result});
+  return result;
+}
+
+async function getEcbReferenceRates() {
+  if(referenceCache && Date.now()-referenceCache.at<REFERENCE_CACHE_MS) {
+    return {...referenceCache.value,cache:'HIT'};
+  }
+  const fromDate=new Date(Date.now()-14*86400000).toISOString().slice(0,10);
+  const url=new URL('/v2/providers/ecb/rates',ECB_REFERENCE_BASE);
+  url.searchParams.set('base','EUR');
+  url.searchParams.set('quotes',REFERENCE_CURRENCIES.join(','));
+  url.searchParams.set('from',fromDate);
+  const response=await fetch(url,{headers:{'Accept':'application/json'},signal:AbortSignal.timeout(12000)});
+  if(!response.ok) {
+    const e=new Error('ecb_reference_http_'+response.status);
+    e.statusCode=502;
+    throw e;
+  }
+  const rows=await response.json();
+  if(!Array.isArray(rows)) {
+    const e=new Error('ecb_reference_invalid_response');
+    e.statusCode=502;
+    throw e;
+  }
+  const byDate=new Map();
+  rows.forEach(row=>{
+    const date=String(row.date||'').slice(0,10);
+    const quote=String(row.quote||'').toUpperCase();
+    const rate=Number(row.rate);
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+       !REFERENCE_CURRENCIES.includes(quote) || !Number.isFinite(rate) || rate<=0) return;
+    if(!byDate.has(date)) byDate.set(date,{});
+    byDate.get(date)[quote]=rate;
+  });
+  const completeDates=[...byDate.keys()].filter(date=>
+    REFERENCE_CURRENCIES.every(currency=>Number.isFinite(byDate.get(date)[currency])&&byDate.get(date)[currency]>0)
+  ).sort();
+  if(!completeDates.length) {
+    const e=new Error('ecb_reference_no_complete_observation');
+    e.statusCode=502;
+    throw e;
+  }
+  const latestDate=completeDates[completeDates.length-1];
+  const previousDate=completeDates.length>1?completeDates[completeDates.length-2]:null;
+  const latest=byDate.get(latestDate);
+  const previous=previousDate?byDate.get(previousDate):null;
+  const crossRate=(pair,observation)=>{
+    const [base,quote]=pair.split('/');
+    const basePerEur=base==='EUR'?1:observation[base];
+    const quotePerEur=quote==='EUR'?1:observation[quote];
+    return Number.isFinite(basePerEur)&&basePerEur>0&&Number.isFinite(quotePerEur)&&quotePerEur>0
+      ?quotePerEur/basePerEur:null;
+  };
+  const pairs=REFERENCE_PAIRS.map(pair=>{
+    const rate=crossRate(pair,latest);
+    const previousRate=previous?crossRate(pair,previous):null;
+    return {
+      pair,rate,
+      previousRate,
+      changePercent:Number.isFinite(rate)&&Number.isFinite(previousRate)&&previousRate>0
+        ?(rate/previousRate-1)*100:null,
+      date:latestDate,previousDate
+    };
+  });
+  if(pairs.some(item=>!Number.isFinite(item.rate)||item.rate<=0)) {
+    const e=new Error('ecb_reference_cross_rate_invalid');
+    e.statusCode=502;
+    throw e;
+  }
+  const today=new Date().toISOString().slice(0,10);
+  const ageDays=Math.max(0,Math.floor((Date.parse(today+'T00:00:00Z')-Date.parse(latestDate+'T00:00:00Z'))/86400000));
+  const result={
+    ok:true,provider:'European Central Bank',relay:'Frankfurter API',
+    base:'EUR',pairs,
+    meta:{
+      latestDate,previousDate,ageDays,
+      freshness:ageDays<=4?'FRESH_REFERENCE':'STALE_REFERENCE',
+      signalEligible:false,
+      disclaimer:'ECB daily reference rates are macro/reference context only, not live quotes or executable prices. They are never an intraday trade signal.'
+    },
+    fetchedAt:new Date().toISOString(),cache:'MISS'
+  };
+  referenceCache={at:Date.now(),value:result};
   return result;
 }
 
@@ -272,6 +360,10 @@ const server=http.createServer(async(req,res)=>{
     });
   }
   const pair=normalisePair(url.searchParams.get('pair'));
+  if(url.pathname==='/api/forex/reference-rates') {
+    try { return respond(res,200,await getEcbReferenceRates()); }
+    catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,provider:'European Central Bank',relay:'Frankfurter API',error:safeError(error),signalEligible:false}); }
+  }
   if(url.pathname==='/api/forex/news') {
     try { return respond(res,200,await getNews()); }
     catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,provider:PROVIDER,error:safeError(error)}); }
@@ -316,6 +408,7 @@ async function crossPairHistorySelfCheck() {
 async function upstreamSelfCheck() {
   const checks = [
     ['EURUSD quote', () => getQuote('EUR/USD')],
+    ['ECB reference rates', () => getEcbReferenceRates()],
     ['EURUSD 15M candles', () => getCandles('EUR/USD','15M')],
     ['economic calendar', () => getCalendar()],
     ['market news', () => getNews()]
@@ -328,7 +421,9 @@ async function upstreamSelfCheck() {
       return;
     }
     const value=result.value;
-    if(label==='EURUSD quote') {
+    if(label==='ECB reference rates') {
+      console.log('[UPSTREAM_CHECK] '+label+'=OK latestDate='+value.meta.latestDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
+    } else if(label==='EURUSD quote') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK freshness='+value.meta.freshness+' ageSeconds='+value.meta.quoteAgeSeconds+' state='+value.quote.marketState);
     } else if(label==='EURUSD 15M candles') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK freshness='+value.meta.freshness+' closedBars='+value.candles.length);
