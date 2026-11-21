@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07172f">
+<meta name="theme-color" content="#fff4c7">
 <meta name="description" content="PARTHAVI FOREX TRADE DESK PRO 2.0 — multi-pair Forex market analysis terminal.">
 <title>PARTHAVI FOREX TRADE DESK PRO 2.0</title>
 <link rel="icon" type="image/webp" href="./assets/parthavi-forex-logo.webp">
@@ -29,6 +29,106 @@ main{min-width:0;padding:23px 25px 60px;max-width:1560px;width:100%;margin:0 aut
 @media(min-width:701px) and (max-width:1050px){.shell{grid-template-columns:67px minmax(0,1fr);min-height:calc(100vh - 88px)}.sidebar{top:88px;height:calc(100vh - 88px);padding:15px 7px}.navcaption{font-size:0;padding:5px}.nav a{justify-content:center;padding:11px 4px;font-size:0}.nav a b{font-size:17px;width:auto}.sidefoot{display:none}.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.row2{grid-template-columns:1fr}.chartarea{height:270px}.row3{grid-template-columns:repeat(2,minmax(0,1fr))}.sourcegrid{grid-template-columns:repeat(3,minmax(0,1fr))}.brand img{width:64px;height:64px;flex-basis:64px}.brandname{font-size:19px}.brandtitle{font-size:13px;letter-spacing:.16em}.brandtag{font-size:6px}.topbar{height:88px;padding:8px 15px}}
 @media(max-width:700px){.topbar{height:74px;padding:7px 10px;gap:7px}.brand{gap:8px}.brand img{width:53px;height:53px;flex-basis:53px;border-radius:11px}.brandname{font-size:14px;letter-spacing:.035em}.brandtitle{font-size:10px;letter-spacing:.12em;margin-top:4px}.brandtag{font-size:5px;letter-spacing:.1em;margin-top:3px}.topright{gap:4px}.statuspill{font-size:6px;padding:6px 7px}.topright .modepill{display:none}.shell{display:block}.sidebar{display:none}main{padding:15px 11px 90px}.pagehead{display:block}.pagehead h1{font-size:22px}.selectors{margin-top:12px}.selectwrap select{min-width:115px}.tfbar{flex:1;justify-content:space-between}.tfbar button{padding:7px 6px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.stat{padding:11px}.statvalue{font-size:17px}.row2,.row3,.two{grid-template-columns:1fr}.card{padding:12px;border-radius:14px}.chartarea{height:225px}.charttop{padding:11px}.charttools .tool:nth-child(n+3){display:none}.indicators{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.indicator{padding:10px}.indicator b{font-size:16px}.fundgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sourcegrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.heat{grid-template-columns:repeat(4,minmax(0,1fr))}.section{margin-top:17px}.sectionhead h2{font-size:13px}.bottomnav{position:fixed;z-index:60;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px calc(6px + env(safe-area-inset-bottom));background:rgba(4,16,35,.97);border-top:1px solid var(--line);backdrop-filter:blur(16px)}.bottomnav a{text-align:center;color:#829abc;font-size:7px;font-weight:850;padding:3px 1px}.bottomnav a b{display:block;color:var(--gold);font-size:16px;line-height:1.2;margin-bottom:3px}.bottomnav a.active{color:#ffdfa0}.foot{text-align:left;font-size:7px}}
 @media(max-width:380px){.statuspill{font-size:0}.statusdot{margin:0}.brand img{width:48px;height:48px;flex-basis:48px}.brandname{font-size:12px}.brandtitle{font-size:9px;letter-spacing:.09em}.brandtag{font-size:4px}.statvalue{font-size:15px}.fund b{font-size:10px}}
+
+/* YELLOW + WHITE FRONTEND THEME */
+:root{
+ --bg:#fffdf5;--bg2:#fff9e8;--panel:#ffffff;--panel2:#fff9e8;--panel3:#fff2c6;
+ --gold:#e0ad00;--gold2:#8d6900;--gold3:#b98500;--blue:#55708e;--blue2:#355d85;
+ --muted:#65748b;--text:#1d2939;--line:rgba(224,173,0,.30);--line2:rgba(29,41,57,.12);
+ --green:#16845b;--red:#c43e4b;--amber:#d99b00;--shadow:0 9px 25px rgba(112,83,0,.075)
+}
+body{color:var(--text);background:linear-gradient(135deg,#fffdf6 0%,#fff 48%,#fff8df 100%)}
+.topbar{background:rgba(255,255,255,.97);border-bottom:2px solid #f1c62e;box-shadow:0 5px 20px rgba(112,83,0,.09)}
+.brand img{border:2px solid #e8b900;box-shadow:0 0 0 4px rgba(240,194,32,.13),0 5px 18px rgba(150,112,0,.13)}
+.brandname{color:#725300;text-shadow:none}
+.brandname em{color:#d49e00}
+.brandtitle{background:linear-gradient(100deg,#8b6700 0%,#d4a000 42%,#a97800 75%,#e3b51d 100%);-webkit-background-clip:text;background-clip:text}
+.brandtag{color:#6b7280}
+.statuspill{background:#fffdf5;border-color:#ead27b;color:#485467}
+.statusdot{background:#e7b600;box-shadow:0 0 9px rgba(231,182,0,.35)}
+.modepill{background:#fff4c7;color:#795900;border-color:#e7c54f}
+.sidebar{background:#fffefa;border-right:1px solid #eadfae}
+.navcaption{color:#8d762c}
+.nav a{color:#526075}
+.nav a b{color:#c39400}
+.nav a:hover,.nav a.active{color:#5d4600;background:linear-gradient(100deg,#fff0ac,#fff9e5);border-color:#e8c64d}
+.sidefoot{border-color:#ead27b;background:linear-gradient(145deg,#fff4c7,#fffdf5)}
+.sidefoot strong{color:#8d6900}
+.sidefoot p{color:#68778c}
+.eyebrow{color:#a77c00}
+.pagehead h1,.sectionhead h2,.cardhead h2,.cardhead h3{color:#202b3b}
+.pagehead p,.sectionhead p{color:#69778a}
+.selectwrap select{background:#fff9e7;border:1px solid #dfbd43;color:#6f5200}
+.selectwrap:after{color:#9a7100}
+.tfbar{background:#fff9e7;border:1px solid #e8d487}
+.tfbar button{color:#667085}
+.tfbar button.active{color:#403000;background:linear-gradient(135deg,#ffe77e,#f3c928);box-shadow:0 3px 10px rgba(200,155,0,.18)}
+.card{border-color:#eadb9f;background:linear-gradient(155deg,#fff,#fffefa);box-shadow:var(--shadow)}
+.stat{background:linear-gradient(155deg,#fff,#fffdf4)}
+.stat:after{background:rgba(238,194,32,.10)}
+.statlabel{color:#667085}
+.statvalue{color:#986f00}
+.statnote{color:#788598}
+.chartpanel{background:#fff}
+.charttop{border-bottom:1px solid #eee2b8}
+.charttitle{color:#253247}
+.chartmeta{color:#718096}
+.tool{border-color:#e8d99f;color:#755a00;background:#fff9e8}
+.chartarea{background-color:#fffdf5;background-image:linear-gradient(rgba(183,144,17,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(183,144,17,.10) 1px,transparent 1px)}
+.chartarea:before{background:radial-gradient(ellipse at center,rgba(246,211,91,.15),transparent 60%)}
+.chartempty .charticon{color:#bd9000}
+.chartempty strong{color:#846100}
+.chartempty p{color:#6b7789}
+.chartfoot{background:#fff9e9;border-top:1px solid #eee2b8;color:#68778c}
+.forecast{background:radial-gradient(ellipse at 90% 0%,rgba(255,222,91,.45),transparent 56%),linear-gradient(145deg,#fff6cb,#fffdf4);border-color:#e6c344}
+.forecast .eyebrow{color:#8f6800}
+.forecast .wait{color:#8d6800}
+.forecastdesc{color:#5d6879}
+.forecastcell{border-color:#e8d68e;background:rgba(255,255,255,.84)}
+.forecastcell small{color:#69778a}
+.forecastcell b{color:#755400}
+.forecastnote{color:#667085}
+.tag{color:#755500;border-color:#e7d17e;background:#fff7d8}
+.tag.muted{color:#596579;border-color:#e1e5ea;background:#f8fafc}
+.tag.green{color:#14764f;border-color:#b9e4d1;background:#edfbf4}
+table th{color:#68768a;border-bottom-color:#eadfae}
+table td{color:#475467;border-bottom-color:#edf0f2}
+table td strong{color:#8c6800}
+.pairrow:hover,.pairrow.selected{background:#fff6d7}
+.paircode{color:#775800}
+.pairdesc{color:#778397}
+.statuscell{color:#886500}
+.indicator{background:#fff}
+.indicator small{color:#68768a}
+.indicator b{color:#967000}
+.indicator em{color:#758298}
+.indicator .spark{color:#c79b18}
+.matrix td:first-child{color:#806000}
+.tfstate{background:#fff8dc;border-color:#eadb9f;color:#6e5a20}
+.fund{border-color:#eee2b8;background:#fffdf5}
+.fund small{color:#68768a}
+.fund b{color:#856200}
+.fund p{color:#788598}
+.source{border-color:#eadfae;background:#fffdf5}
+.source b{color:#344054}
+.source span{color:#758298}
+.heat div{border-color:#eadfae;background:#fffdf5}
+.heat b{color:#8a6600}
+.heat span{color:#758298}
+.notice{border-color:#ead78e;background:linear-gradient(100deg,#fff4c8,#fffdf5);color:#596579}
+.notice b{color:#785900}
+.bottomnav{background:rgba(255,255,255,.98);border-top:1px solid #e8d487}
+.bottomnav a{color:#68768a}
+.bottomnav a b{color:#b68b00}
+.bottomnav a.active{color:#765600}
+.foot{color:#7a8493}
+.listrow{border-bottom-color:#edf0f2;color:#536174}
+.listrow b{color:#8c6800}
+@media(max-width:700px){
+ .topbar{background:rgba(255,255,255,.98)}
+ .brandname{color:#725300}
+}
+
 </style>
 </head>
 <body>
