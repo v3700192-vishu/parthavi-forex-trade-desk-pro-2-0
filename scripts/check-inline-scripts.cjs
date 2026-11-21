@@ -6,12 +6,12 @@ const path=require('node:path');
 const htmlPath=path.join(__dirname,'..','public','index.html');
 if(!fs.existsSync(htmlPath))throw new Error('public/index.html not found');
 const html=fs.readFileSync(htmlPath,'utf8');
-const scripts=[...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
 let checked=0;
 for(let i=0;i<scripts.length;i++){
   const attributes=scripts[i][1]||'';
   const body=scripts[i][2]||'';
-  if(/\\bsrc\\s*=/.test(attributes)||!body.trim())continue;
+  if(/\bsrc\s*=/.test(attributes)||!body.trim())continue;
   new vm.Script(body,{filename:'public/index.html:inline-script-'+(checked+1)+'.js'});
   checked++;
 }
