@@ -946,6 +946,7 @@ table .blank,.blank{color:#bdabb2!important}
    state.quoteAgeSeconds=age;
    state.freshness=fresh?'FRESH':'STALE';
    state.safeToSignal=fresh;
+   if(pair===pairNow()&&currentCandles&&currentCandlesPair===pair)renderRiskPlanner(currentCandles,pair);
    const row=document.querySelector('[data-pair-row="'+pair+'"]');
    if(row){const cells=row.querySelectorAll('td');if(cells[6])cells[6].textContent=state.freshness+(state.quote&&state.quote.marketState==='closed'?' · CLOSED':'');}
    if(pair===pairNow()){
@@ -1129,10 +1130,14 @@ table .blank,.blank{color:#bdabb2!important}
    const allUsable=states.length===5&&states.every(s=>s&&s.summary);
    const allFresh=allUsable&&states.every(s=>s.freshness==='FRESH');
    const sides=allUsable?states.map(s=>s.summary.direction):[];
+   const quoteState=quoteStates.get(pair);
+   const quoteFresh=Boolean(quoteState&&quoteState.freshness==='FRESH');
    let decision='Incomplete timeframe history. WAIT until all five intervals return enough closed candles.';
    if(allUsable&&!allFresh){
     decision='At least one timeframe is stale. Historical bias may be visible, but a live setup is blocked. WAIT.';
-   }else if(allFresh){
+   }else if(allFresh&&!quoteFresh){
+    decision='Closed-candle history is available, but the live quote is stale or closed. WAIT — no current directional setup.';
+   }else if(allFresh&&quoteFresh){
     const bias=sides[0];
     const setupAligned=['BULLISH','BEARISH'].includes(bias)&&sides.slice(1,4).every(side=>side===bias);
     const entryAligned=sides[4]===bias;
@@ -1144,7 +1149,7 @@ table .blank,.blank{color:#bdabb2!important}
    const b=document.createElement('b');b.textContent='TOP-DOWN STATUS: ';note.appendChild(b);
    note.appendChild(document.createTextNode(decision));
    const modelCells=document.querySelectorAll('.forecastcell b');
-   if(modelCells.length>1)modelCells[1].textContent=allFresh&&['BULLISH','BEARISH'].includes(sides[0])&&new Set(sides).size===1?'5/5 TF · 1 SOURCE':'TF MIXED / WAIT';
+   if(modelCells.length>1)modelCells[1].textContent=allFresh&&quoteFresh&&['BULLISH','BEARISH'].includes(sides[0])&&new Set(sides).size===1?'5/5 TF · 1 SOURCE':'TF / QUOTE WAIT';
   }
  }
  async function loadWatchlist(){if(!apiReady)return;await Promise.all(PAIRS.map(pair=>loadQuote(pair,true)));}
