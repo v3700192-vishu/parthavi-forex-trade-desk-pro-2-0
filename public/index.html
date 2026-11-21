@@ -170,9 +170,10 @@ body{
 .brand{gap:12px;min-width:0;flex:1}
 .brand img{border:2px solid #f1c82b;box-shadow:0 0 0 4px rgba(255,213,46,.12),0 5px 22px rgba(0,0,0,.48)}
 .brandtext{min-width:0;max-width:100%}
-.brandname{display:block;font-size:clamp(11px,1.55vw,21px);letter-spacing:.025em;line-height:1.12;white-space:nowrap;color:#fff;font-weight:1000;text-shadow:0 1px 0 #000}
-.brandname span,.brandname strong{color:#fff;font-weight:1000}
-.brandname em{color:#ffd52e;font-style:normal;font-weight:1000}
+.brandname{display:block;font-size:clamp(18px,1.9vw,28px);letter-spacing:.015em;line-height:1.08;white-space:nowrap;color:#fff;font-weight:1000;text-shadow:0 1px 0 #000,0 0 12px rgba(255,213,46,.15)}
+.brandname span{color:#ffd52e;font-weight:1000;text-shadow:0 0 12px rgba(255,213,46,.22)}
+.brandname strong{color:#fff;font-weight:1000}
+.brandname em{color:#fff;font-style:normal;font-weight:1000}
 .brandtag{color:#e9dfe2}
 .statuspill{background:#1b0a10;border:1px solid rgba(255,213,46,.3);color:#fff2d4}
 .statusdot{background:#ffd52e;box-shadow:0 0 10px rgba(255,213,46,.55)}
@@ -259,13 +260,13 @@ table .blank,.blank{color:#bdabb2!important}
  .brand img{width:64px;height:64px;flex-basis:64px}
  .shell{min-height:calc(100vh - 88px)}
  .sidebar{top:88px;height:calc(100vh - 88px)}
- .brandname{font-size:clamp(12px,1.9vw,18px)}
+ .brandname{font-size:clamp(17px,2.3vw,22px)}
 }
 @media(max-width:700px){
  .topbar{height:74px;padding:7px 10px;background:rgba(12,4,7,.99)}
  .brand{gap:8px;flex:1;min-width:0}
  .brand img{width:53px;height:53px;flex-basis:53px}
- .brandname{font-size:clamp(8px,2.85vw,12px);letter-spacing:0;white-space:nowrap}
+ .brandname{font-size:clamp(11px,3.8vw,16px);letter-spacing:-.015em;white-space:nowrap;font-weight:1000}
  .topright{flex:0 0 auto}
  .topright .modepill{display:none}
  .topright .statuspill{font-size:0;width:19px;height:19px;padding:0;justify-content:center}
@@ -273,7 +274,7 @@ table .blank,.blank{color:#bdabb2!important}
 }
 @media(max-width:380px){
  .brand img{width:46px;height:46px;flex-basis:46px}
- .brandname{font-size:8px;letter-spacing:-.025em}
+ .brandname{font-size:clamp(10.5px,3.5vw,13px);letter-spacing:-.035em}
 }
 
 </style>
