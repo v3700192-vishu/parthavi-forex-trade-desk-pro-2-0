@@ -630,6 +630,11 @@ body{color:#fff!important}
    <div class="fund"><small>NEWS DIRECTION</small><b>—</b><p>Verified pair-specific news</p></div>
   </div>
  </div>
+ <div class="card section" id="ecbReferenceCard">
+  <div class="cardhead"><h3>ECB Daily Reference Cross-Check</h3><span class="tag muted" id="ecbReferenceStatus">SOURCE CONNECTING</span></div>
+  <div class="tablewrap"><table><thead><tr><th>PAIR</th><th>ECB REFERENCE RATE</th><th>CHANGE VS PRIOR ECB DAY</th><th>RATE DATE</th></tr></thead><tbody id="ecbReferenceBody"><tr><td colspan="4" class="blank" style="text-align:center;padding:18px">Waiting for independent daily reference rates…</td></tr></tbody></table></div>
+  <div class="notice" id="ecbReferenceNote" style="margin-top:10px">European Central Bank daily reference rates, relayed by Frankfurter API. This is a separate reference-data cross-check only, not a live quote, executable price or intraday directional vote.</div>
+ </div>
  <div class="card section" id="marketNewsCard">
   <div class="cardhead"><h3>Latest Market News</h3><span class="tag muted" id="marketNewsStatus">SOURCE CONNECTING</span></div>
   <div id="marketNewsFeed" class="news-feed"><div class="notice">Market headlines will appear when the upstream news feed responds.</div></div>
@@ -1171,6 +1176,45 @@ body{color:#fff!important}
   if(event.timeMode!=='exact')return date+' · '+String(event.timeMode||'tentative').toUpperCase();
   return date+' '+d.toLocaleTimeString('en-GB',{timeZone:'UTC',hour:'2-digit',minute:'2-digit',hour12:false})+' UTC';
  }
+ async function loadEcbReferenceRates(){
+  const body=$('#ecbReferenceBody'),status=$('#ecbReferenceStatus'),note=$('#ecbReferenceNote');
+  if(!body)return;
+  try{
+   const data=await requestJson('/api/forex/reference-rates',20000);
+   if(!data.ok||!Array.isArray(data.pairs)||!data.meta)throw new Error(data.error||'invalid_reference_response');
+   body.innerHTML='';
+   data.pairs.forEach(item=>{
+    const tr=document.createElement('tr');
+    const change=Number(item.changePercent);
+    const values=[
+     item.pair,
+     Number.isFinite(Number(item.rate))?Number(item.rate).toFixed(item.pair.includes('JPY')?3:5):'—',
+     Number.isFinite(change)?(change>=0?'+':'')+change.toFixed(3)+'%':'—',
+     item.date||'—'
+    ];
+    values.forEach((value,index)=>{
+     const td=document.createElement('td');td.textContent=value;
+     if(index===0)td.style.fontWeight='900';
+     if(index===2&&Number.isFinite(change)){
+      td.style.fontWeight='900';
+      td.style.color=change>0?'#69e0aa':change<0?'#ff9aa5':'#fff';
+     }
+     tr.appendChild(td);
+    });
+    body.appendChild(tr);
+   });
+   if(status)status.textContent='ECB · '+data.meta.latestDate+' · '+data.meta.freshness;
+   if(note)note.textContent='Source: European Central Bank via Frankfurter API. Latest observation '+data.meta.latestDate+' ('+data.meta.ageDays+' calendar days old). Change compares the latest two common ECB reference dates. Daily reference context only; it is never an intraday trade vote.';
+  }catch(error){
+   body.innerHTML='';
+   const tr=document.createElement('tr'),td=document.createElement('td');
+   td.colSpan=4;td.className='blank';td.style.textAlign='center';td.style.padding='18px';
+   td.textContent='ECB reference data unavailable: '+String(error.message||'upstream_error');
+   tr.appendChild(td);body.appendChild(tr);
+   if(status)status.textContent='ECB SOURCE UNAVAILABLE';
+   if(note)note.textContent='No substitute or estimated rate is shown. Live trade signals remain blocked without independently verified data.';
+  }
+ }
  async function loadCalendar(){
   const body=$('#economicCalendarBody'),status=$('#calendarStatus');
   if(!body)return;
@@ -1467,7 +1511,7 @@ body{color:#fff!important}
  async function refreshSelected(){if(!apiReady)return;await Promise.all([loadQuote(pairNow(),false),loadCandles(pairNow(),tfNow())]);}
  async function init(){
   if(await getStatus()){
-   await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews(),loadMultiTimeframe(pairNow()),loadCrossPairAnalytics()]);
+   await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews(),loadMultiTimeframe(pairNow()),loadCrossPairAnalytics(),loadEcbReferenceRates()]);
    await startQuoteStream();
   }
   setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadQuote(pairNow(),false);},QUOTE_REFRESH_MS);
@@ -1475,6 +1519,7 @@ body{color:#fff!important}
   setInterval(()=>{if(apiReady)loadCalendar();},900000);
   setInterval(()=>{if(apiReady)loadCrossPairAnalytics();},900000);
   setInterval(()=>{if(apiReady)loadMarketNews();},300000);
+  setInterval(()=>{if(apiReady)loadEcbReferenceRates();},900000);
   setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadWatchlist();},WATCHLIST_REFRESH_MS);
   setInterval(()=>{if(apiReady){loadCandles(pairNow(),tfNow());loadMultiTimeframe(pairNow());}},CANDLE_REFRESH_MS);
   setInterval(async()=>{if(!apiReady)await getStatus();},60000);
