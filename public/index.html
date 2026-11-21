@@ -312,6 +312,10 @@ table .blank,.blank{color:#bdabb2!important}
 .calendar-high{color:#ff9b9f!important}
 .calendar-medium{color:#ffdf54!important}
 
+
+#riskPlanner .indicator{min-width:0}
+#riskPlanner .indicator b{font-size:clamp(13px,1.4vw,19px);overflow-wrap:anywhere}
+
 </style>
 </head>
 <body>
@@ -414,9 +418,19 @@ table .blank,.blank{color:#bdabb2!important}
   <div class="card indicator"><small>VWAP / VOLUME</small><b>—</b><em>Session reference where supported</em><span class="spark">▥</span></div>
  </div>
  <div class="grid row3 section">
-  <div class="card"><div class="cardhead"><h3>Market Structure</h3><span class="tag muted">PRICE ACTION</span></div><div class="fundgrid" style="grid-template-columns:1fr 1fr"><div class="fund"><small>STRUCTURE</small><b>—</b><p>HH / HL / LH / LL</p></div><div class="fund"><small>SWING HIGH</small><b>—</b><p>Latest confirmed high</p></div><div class="fund"><small>SWING LOW</small><b>—</b><p>Latest confirmed low</p></div><div class="fund"><small>BOS / CHoCH</small><b>—</b><p>Break of structure</p></div></div></div>
-  <div class="card"><div class="cardhead"><h3>Key Price Levels</h3><span class="tag muted">LEVELS</span></div><div class="fundgrid" style="grid-template-columns:1fr 1fr"><div class="fund"><small>RESISTANCE 1</small><b>—</b></div><div class="fund"><small>RESISTANCE 2</small><b>—</b></div><div class="fund"><small>SUPPORT 1</small><b>—</b></div><div class="fund"><small>SUPPORT 2</small><b>—</b></div><div class="fund"><small>PIVOT</small><b>—</b></div><div class="fund"><small>FIBONACCI ZONES</small><b>—</b></div></div></div>
-  <div class="card"><div class="cardhead"><h3>Pattern & Breakout Scan</h3><span class="tag muted">STRUCTURE SCAN</span></div><div class="list"><div class="listrow"><span>Range / breakout</span><b>—</b></div><div class="listrow"><span>False breakout filter</span><b>—</b></div><div class="listrow"><span>Support retest</span><b>—</b></div><div class="listrow"><span>Candle confirmation</span><b>—</b></div><div class="listrow"><span>Liquidity sweep</span><b>—</b></div></div></div>
+  <div class="card"><div class="cardhead"><h3>Market Structure</h3><span class="tag muted">PRICE ACTION</span></div><div class="fundgrid" style="grid-template-columns:1fr 1fr"><div class="fund"><small>STRUCTURE</small><b id="structureState">—</b><p>HH / HL / LH / LL</p></div><div class="fund"><small>SWING HIGH</small><b id="structureSwingHigh">—</b><p>Latest confirmed high</p></div><div class="fund"><small>SWING LOW</small><b id="structureSwingLow">—</b><p>Latest confirmed low</p></div><div class="fund"><small>BOS / CHoCH</small><b id="structureBreak">—</b><p>Confirmed close beyond swing</p></div></div></div>
+  <div class="card"><div class="cardhead"><h3>Key Price Levels</h3><span class="tag muted">LEVELS</span></div><div class="fundgrid" style="grid-template-columns:1fr 1fr"><div class="fund"><small>RESISTANCE 1</small><b id="levelResistance1">—</b></div><div class="fund"><small>RESISTANCE 2</small><b id="levelResistance2">—</b></div><div class="fund"><small>SUPPORT 1</small><b id="levelSupport1">—</b></div><div class="fund"><small>SUPPORT 2</small><b id="levelSupport2">—</b></div><div class="fund"><small>TF PIVOT</small><b id="levelPivot">—</b></div><div class="fund"><small>FIBONACCI 38 / 62</small><b id="levelFibonacci">—</b></div></div></div>
+  <div class="card"><div class="cardhead"><h3>Pattern & Breakout Scan</h3><span class="tag muted">STRUCTURE SCAN</span></div><div class="list"><div class="listrow"><span>Range / breakout</span><b data-scan="range">—</b></div><div class="listrow"><span>False breakout filter</span><b data-scan="falseBreak">—</b></div><div class="listrow"><span>Support retest</span><b data-scan="retest">—</b></div><div class="listrow"><span>Candle confirmation</span><b data-scan="candle">—</b></div><div class="listrow"><span>Liquidity sweep</span><b data-scan="sweep">—</b></div></div></div>
+ </div>
+ <div class="card section" id="riskPlanner">
+  <div class="cardhead"><h3>Risk Distance Planner</h3><span class="tag muted">ILLUSTRATIVE · NOT A TRADE SIGNAL</span></div>
+  <div class="grid indicators">
+   <div class="card indicator"><small>LIVE REFERENCE</small><b id="riskReference">WAIT</b><em>Requires fresh quote</em></div>
+   <div class="card indicator"><small>ATR 14</small><b id="riskAtr">—</b><em>Selected timeframe</em></div>
+   <div class="card indicator"><small>1R DISTANCE</small><b id="riskOneR">—</b><em>1.5 × ATR risk distance</em></div>
+   <div class="card indicator"><small>2R DISTANCE</small><b id="riskTwoR">—</b><em>3.0 × ATR reference distance</em></div>
+  </div>
+  <div class="notice" style="margin-top:10px" id="riskPlannerNote">Distances are educational volatility references only. No direction, entry order or trade is authorised by this panel.</div>
  </div>
 </section>
 
@@ -560,13 +574,14 @@ table .blank,.blank{color:#bdabb2!important}
 })();
 </script>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
 <script>
 (() => {
  'use strict';
  const API_BASE='https://parthavi-forex-data-api.onrender.com';
  const PAIRS=['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD'];
- const QUOTE_REFRESH_MS=5000, CANDLE_REFRESH_MS=180000, WATCHLIST_REFRESH_MS=60000;
- let apiReady=false;
+ const QUOTE_REFRESH_MS=10000, CANDLE_REFRESH_MS=180000, WATCHLIST_REFRESH_MS=60000;
+ let apiReady=false, quoteStreamConnected=false, quoteStreamStarting=false, quoteStreamConnection=null;
  const quoteStates=new Map();
 
  const $=selector=>document.querySelector(selector);
@@ -674,6 +689,102 @@ table .blank,.blank{color:#bdabb2!important}
   const signal=ema(line,9);
   return{line:line[line.length-1],signal,hist:line[line.length-1]-signal};
  }
+
+ function confirmedSwings(candles,span=2){
+  const highs=[],lows=[];
+  for(let i=span;i<candles.length-span;i++){
+   const bar=candles[i];let isHigh=true,isLow=true;
+   for(let j=1;j<=span;j++){
+    if(bar.high<=candles[i-j].high||bar.high<candles[i+j].high)isHigh=false;
+    if(bar.low>=candles[i-j].low||bar.low>candles[i+j].low)isLow=false;
+   }
+   if(isHigh)highs.push({index:i,price:bar.high,time:bar.time});
+   if(isLow)lows.push({index:i,price:bar.low,time:bar.time});
+  }
+  return{highs,lows};
+ }
+ function setNodeText(id,value){
+  const node=document.getElementById(id);if(node)node.textContent=value;
+ }
+ function setScanValue(name,value){
+  const node=document.querySelector('[data-scan="'+name+'"]');if(node)node.textContent=value;
+ }
+ function renderMarketStructure(candles,pair){
+  if(!Array.isArray(candles)||candles.length<40)return;
+  const swings=confirmedSwings(candles,2),last=candles[candles.length-1],close=last.close;
+  const highs=swings.highs,lows=swings.lows;
+  const lastHigh=highs.at(-1),previousHigh=highs.at(-2),lastLow=lows.at(-1),previousLow=lows.at(-2);
+  let structure='MIXED';
+  if(lastHigh&&previousHigh&&lastLow&&previousLow){
+   const hh=lastHigh.price>previousHigh.price,hl=lastLow.price>previousLow.price;
+   const lh=lastHigh.price<previousHigh.price,ll=lastLow.price<previousLow.price;
+   if(hh&&hl)structure='HH / HL';
+   else if(lh&&ll)structure='LH / LL';
+  }
+  setNodeText('structureState',structure);
+  setNodeText('structureSwingHigh',lastHigh?fmt(lastHigh.price,pair):'—');
+  setNodeText('structureSwingLow',lastLow?fmt(lastLow.price,pair):'—');
+  let breakState='NO BREAK';
+  if(lastHigh&&close>lastHigh.price)breakState='BULLISH BOS';
+  else if(lastLow&&close<lastLow.price)breakState='BEARISH BOS';
+  else if(structure==='HH / HL'&&lastLow&&last.close<lastLow.price)breakState='BEARISH CHoCH';
+  else if(structure==='LH / LL'&&lastHigh&&last.close>lastHigh.price)breakState='BULLISH CHoCH';
+  setNodeText('structureBreak',breakState);
+
+  const resistance=highs.map(x=>x.price).filter(v=>v>close).sort((a,b)=>a-b);
+  const support=lows.map(x=>x.price).filter(v=>v<close).sort((a,b)=>b-a);
+  setNodeText('levelResistance1',resistance[0]!==undefined?fmt(resistance[0],pair):'—');
+  setNodeText('levelResistance2',resistance[1]!==undefined?fmt(resistance[1],pair):'—');
+  setNodeText('levelSupport1',support[0]!==undefined?fmt(support[0],pair):'—');
+  setNodeText('levelSupport2',support[1]!==undefined?fmt(support[1],pair):'—');
+  const pivot=(last.high+last.low+last.close)/3;
+  setNodeText('levelPivot',fmt(pivot,pair));
+  if(lastHigh&&lastLow){
+   const high=Math.max(lastHigh.price,lastLow.price),low=Math.min(lastHigh.price,lastLow.price),range=high-low;
+   setNodeText('levelFibonacci',fmt(low+range*.382,pair)+' / '+fmt(low+range*.618,pair));
+  }else setNodeText('levelFibonacci','—');
+
+  const prior=candles.slice(-21,-1),rangeHigh=Math.max(...prior.map(c=>c.high)),rangeLow=Math.min(...prior.map(c=>c.low));
+  let rangeState='INSIDE 20-BAR RANGE';
+  if(close>rangeHigh)rangeState='BULLISH BREAKOUT';
+  else if(close<rangeLow)rangeState='BEARISH BREAKOUT';
+  setScanValue('range',rangeState);
+
+  let falseBreak='NONE SEEN';
+  if(last.high>rangeHigh&&close<=rangeHigh)falseBreak='UPPER WICK REJECTED';
+  else if(last.low<rangeLow&&close>=rangeLow)falseBreak='LOWER WICK REJECTED';
+  setScanValue('falseBreak',falseBreak);
+
+  const av=atr(candles,14),tol=Number.isFinite(av)?av*.25:0;
+  let retest='NO CONFIRMED RETEST';
+  if(support.length&&tol>0&&last.low<=support[0]+tol&&close>support[0])retest='SUPPORT HOLD';
+  else if(resistance.length&&tol>0&&last.high>=resistance[0]-tol&&close<resistance[0])retest='RESISTANCE REJECTION';
+  setScanValue('retest',retest);
+
+  const candleRange=last.high-last.low,body=Math.abs(last.close-last.open),bodyRatio=candleRange>0?body/candleRange:0;
+  const candleState=bodyRatio>=.6?(last.close>last.open?'BULLISH BODY':'BEARISH BODY'):'WEAK / DOJI';
+  setScanValue('candle',candleState);
+
+  let sweep='NONE CONFIRMED';
+  if(lastHigh&&last.high>lastHigh.price&&close<lastHigh.price)sweep='BUY-SIDE SWEEP';
+  else if(lastLow&&last.low<lastLow.price&&close>lastLow.price)sweep='SELL-SIDE SWEEP';
+  setScanValue('sweep',sweep);
+ }
+ function renderRiskPlanner(candles,pair){
+  const state=quoteStates.get(pair),quote=state&&state.quote,age=state&&state.quoteAgeSeconds;
+  const fresh=state&&state.freshness==='FRESH'&&quote&&Number.isFinite(Number(quote.mid))&&Number(age)<=300;
+  const av=atr(candles,14);
+  if(!fresh||!Number.isFinite(av)||av<=0){
+   setNodeText('riskReference','WAIT');setNodeText('riskAtr','—');setNodeText('riskOneR','—');setNodeText('riskTwoR','—');
+   const note=$('#riskPlannerNote');if(note)note.textContent='A fresh quote and sufficient closed candles are required. This panel never creates a direction or trade signal.';
+   return;
+  }
+  setNodeText('riskReference',fmt(Number(quote.mid),pair));
+  setNodeText('riskAtr',fmt(av,pair));
+  setNodeText('riskOneR',fmt(av*1.5,pair));
+  setNodeText('riskTwoR',fmt(av*3,pair));
+  const note=$('#riskPlannerNote');if(note)note.textContent='Volatility distances only: 1R = 1.5 × ATR and 2R = 3 × ATR. No entry side is selected; a separate validated signal is still required.';
+ }
  function renderIndicators(candles,pair){
   const values=candles.map(c=>c.close),cards=document.querySelectorAll('#technicals .indicators .indicator');
   if(cards.length<8)return;
@@ -723,25 +834,58 @@ table .blank,.blank{color:#bdabb2!important}
   cells[5].textContent=fmtPercent(q.dayDiffPercent);
   cells[6].textContent=data.meta.freshness+(q.marketState==='closed'?' · CLOSED':'');
  }
+ function applyQuote(pair,data,sourceLabel='REST'){
+  const q=data.quote, timestamp=q.timestamp?Date.parse(q.timestamp):NaN;
+  const age=hasNumber(q.ageSeconds)?Number(q.ageSeconds):(Number.isFinite(timestamp)?Math.max(0,Math.floor((Date.now()-timestamp)/1000)):Infinity);
+  const freshness=q.marketState==='open'&&!q.stale&&age<=300&&Number.isFinite(timestamp)?'FRESH':'STALE';
+  const meta={...(data.meta||{}),freshness,safeToSignal:freshness==='FRESH',quoteAgeSeconds:Number.isFinite(age)?age:null,quoteTimestamp:Number.isFinite(timestamp)?timestamp:null};
+  quoteStates.set(pair,{...meta,quote:q});
+  data.meta=meta;
+  updateWatchRow(pair,data);
+  if(pair===pairNow()){
+   $('#lastPrice').textContent=fmt(q.mid,pair);
+   $('#lastPriceNote').textContent=(q.source||'Biquote')+' · indicative mid · '+sourceLabel;
+   $('#bidPrice').textContent=fmt(q.bid,pair);
+   $('#askPrice').textContent=fmt(q.ask,pair);
+   $('#spreadPrice').textContent=fmt(q.spread,pair);
+   $('#feedQuality').textContent=freshness;
+   $('#feedQualityNote').textContent='Quote age '+(Number.isFinite(age)?age+'s':'—')+' · '+q.marketState;
+   if(freshness!=='FRESH'&&!quoteStreamConnected)connector('STALE / CLOSED QUOTE','Last known quote is shown for context only. A stale or closed-market price cannot support a signal.',false);
+  }
+  return data;
+ }
+ function quoteFromTick(tick){
+  const symbol=String(tick.symbol||tick.Symbol||'').toUpperCase().replace('/','');
+  const pair=symbol.length===6?symbol.slice(0,3)+'/'+symbol.slice(3):'';
+  if(!PAIRS.includes(pair))return null;
+  const bid=Number(tick.bid),ask=Number(tick.ask),mid=Number(tick.mid),spread=Number(tick.spread);
+  if(![bid,ask,mid,spread].every(Number.isFinite)||bid<=0||ask<bid||mid<=0||spread<0)return null;
+  const timestampValue=tick.timestamp||tick.lastQuoteAt||null;
+  const timestamp=timestampValue?Date.parse(timestampValue):NaN;
+  const age=hasNumber(tick.quoteAgeSeconds)?Math.max(0,Number(tick.quoteAgeSeconds)):(Number.isFinite(timestamp)?Math.max(0,Math.floor((Date.now()-timestamp)/1000)):Infinity);
+  const marketState=String(tick.marketState||'unknown').toLowerCase();
+  const stale=Boolean(tick.stale)||marketState!=='open'||age>300||!Number.isFinite(timestamp);
+  const data={
+   ok:true,provider:'Biquote',pair,
+   quote:{
+    bid,ask,mid,spread,
+    dayDiffPercent:marketState==='open'&&hasNumber(tick.dayDiffPercent)?Number(tick.dayDiffPercent):null,
+    timestamp:Number.isFinite(timestamp)?new Date(timestamp).toISOString():null,
+    source:String(tick.source||'Biquote SignalR').slice(0,100),
+    marketState,stale,ageSeconds:Number.isFinite(age)?age:null
+   },
+   meta:{freshness:stale?'STALE':'FRESH',safeToSignal:!stale,quoteAgeSeconds:Number.isFinite(age)?age:null},
+   fetchedAt:new Date().toISOString(),cache:'STREAM'
+  };
+  return {pair,data};
+ }
  async function loadQuote(pair,watchOnly=false){
   try{
    const data=await requestJson('/api/forex/quote?pair='+encodeURIComponent(pair));
-   quoteStates.set(pair,data.meta);
-   updateWatchRow(pair,data);
-   if(!watchOnly&&pair===pairNow()){
-    const q=data.quote;
-    $('#lastPrice').textContent=fmt(q.mid,pair);
-    $('#lastPriceNote').textContent=q.source+' · indicative mid';
-    $('#bidPrice').textContent=fmt(q.bid,pair);
-    $('#askPrice').textContent=fmt(q.ask,pair);
-    $('#spreadPrice').textContent=fmt(q.spread,pair);
-    $('#feedQuality').textContent=data.meta.freshness;
-    $('#feedQualityNote').textContent='Quote age '+(data.meta.quoteAgeSeconds===null?'—':data.meta.quoteAgeSeconds+'s')+' · '+q.marketState;
-    if(data.meta.freshness!=='FRESH')connector('STALE / CLOSED QUOTE','Last known quote is shown for context only. A stale or closed-market price cannot support a signal.',false);
-   }
+   applyQuote(pair,data, 'REST');
    return data;
   }catch(error){
-   quoteStates.set(pair,{freshness:'UNKNOWN',safeToSignal:false});
+   if(!quoteStates.has(pair))quoteStates.set(pair,{freshness:'UNKNOWN',safeToSignal:false});
    setWatchError(pair,'NO QUOTE');
    if(!watchOnly&&pair===pairNow()){
     ['lastPrice','bidPrice','askPrice','spreadPrice'].forEach(id=>{if($('#'+id))$('#'+id).textContent='—';});
@@ -751,13 +895,71 @@ table .blank,.blank{color:#bdabb2!important}
    return null;
   }
  }
+ function onStreamTick(tick){
+  const parsed=quoteFromTick(tick);if(!parsed)return;
+  applyQuote(parsed.pair,parsed.data,'SIGNALR STREAM');
+ }
+ async function startQuoteStream(){
+  if(!apiReady||quoteStreamConnected||quoteStreamStarting)return;
+  if(!window.signalR||!window.signalR.HubConnectionBuilder)return;
+  quoteStreamStarting=true;
+  let connection=null;
+  try{
+   connection=new window.signalR.HubConnectionBuilder()
+    .withUrl('https://biquote.io/hubs/tick')
+    .withAutomaticReconnect()
+    .build();
+   connection.on('ReceiveTick',onStreamTick);
+   connection.onreconnecting(()=>{quoteStreamConnected=false;});
+   connection.onreconnected(async()=>{
+    try{
+     await connection.invoke('Subscribe',PAIRS.map(pair=>pair.replace('/','')));
+     quoteStreamConnected=true;
+    }catch(error){quoteStreamConnected=false;}
+   });
+   connection.onclose(()=>{
+    quoteStreamConnected=false;
+    if(apiReady)setTimeout(()=>startQuoteStream(),15000);
+   });
+   await connection.start();
+   await connection.invoke('Subscribe',PAIRS.map(pair=>pair.replace('/','')));
+   quoteStreamConnection=connection;
+   quoteStreamConnected=true;
+   connector('LIVE STREAM CONNECTED','SignalR stream connected for seven FX pairs. Quote updates arrive from Biquote; candle history still refreshes through REST. A stale/closed tick never unlocks a signal.',true);
+  }catch(error){
+   quoteStreamConnected=false;
+   if(connection){try{await connection.stop();}catch{}}
+   connector('REST FALLBACK ACTIVE','Live stream could not connect. The secure REST quote fallback remains enabled; stale data still blocks signals.',false);
+   setTimeout(()=>startQuoteStream(),30000);
+  }finally{
+   quoteStreamStarting=false;
+  }
+ }
+ function refreshQuoteAges(){
+  for(const pair of PAIRS){
+   const state=quoteStates.get(pair);
+   if(!state||!state.quoteTimestamp)continue;
+   const age=Math.max(0,Math.floor((Date.now()-state.quoteTimestamp)/1000));
+   const fresh=state.marketState==='open'&&age<=300;
+   state.quoteAgeSeconds=age;
+   state.freshness=fresh?'FRESH':'STALE';
+   state.safeToSignal=fresh;
+   const row=document.querySelector('[data-pair-row="'+pair+'"]');
+   if(row){const cells=row.querySelectorAll('td');if(cells[6])cells[6].textContent=state.freshness+(state.marketState==='closed'?' · CLOSED':'');}
+   if(pair===pairNow()){
+    $('#feedQuality').textContent=state.freshness;
+    $('#feedQualityNote').textContent='Quote age '+age+'s · '+state.marketState;
+    if(!fresh&&state.marketState!=='open')connector('MARKET CLOSED / LAST PRICE','Last known quote is retained for reference. No live forecast is permitted while the market is closed.',false);
+   }
+  }
+ }
  async function loadCandles(pair,timeframe){
   const url='/api/forex/candles?pair='+encodeURIComponent(pair)+'&timeframe='+encodeURIComponent(timeframe);
   try{
    const data=await requestJson(url,20000);
    if(pair!==pairNow()||timeframe!==tfNow())return data;
    const candles=data.candles,last=candles[candles.length-1];
-   renderChart(candles,pair);renderIndicators(candles,pair);
+   renderChart(candles,pair);renderIndicators(candles,pair);renderMarketStructure(candles,pair);renderRiskPlanner(candles,pair);
    const quote=quoteStates.get(pair);
    if(data.meta.freshness==='FRESH'&&quote?.freshness==='FRESH'){
     connector('FRESH DATA · SIGNAL BLOCKED','Fresh quote and closed OHLC candles loaded from Biquote. This is one indicative source only; forecast remains WAIT pending independent-source agreement and out-of-sample validation.',true);
@@ -924,20 +1126,25 @@ table .blank,.blank{color:#bdabb2!important}
   paintMtfRow('source',values.source);
   const note=$('#mtfDecision');
   if(note){
-   const h4=states[0],h1=states[1];
-   let decision='Higher-timeframe data is incomplete. WAIT until all five intervals return adequate closed candles.';
-   if(h4&&h1&&h4.summary&&h1.summary){
-    if(h4.freshness!=='FRESH'||h1.freshness!=='FRESH'){
-     decision='Historical timeframe values are displayed, but 4H or 1H data is stale. WAIT — no live directional confirmation.';
-    }else if(h4.summary.direction===h1.summary.direction&&h4.summary.direction!=='MIXED'){
-     decision='4H and 1H direction align '+h4.summary.direction+'. Continue checking 30M setup, 15M confirmation and 5M entry. WAIT remains because only one indicative provider is connected.';
-    }else{
-     decision='4H and 1H are not aligned. Top-down rule blocks the setup. WAIT — do not use 5M direction alone.';
-    }
+   const allUsable=states.length===5&&states.every(s=>s&&s.summary);
+   const allFresh=allUsable&&states.every(s=>s.freshness==='FRESH');
+   const sides=allUsable?states.map(s=>s.summary.direction):[];
+   let decision='Incomplete timeframe history. WAIT until all five intervals return enough closed candles.';
+   if(allUsable&&!allFresh){
+    decision='At least one timeframe is stale. Historical bias may be visible, but a live setup is blocked. WAIT.';
+   }else if(allFresh){
+    const bias=sides[0];
+    const setupAligned=['BULLISH','BEARISH'].includes(bias)&&sides.slice(1,4).every(side=>side===bias);
+    const entryAligned=sides[4]===bias;
+    if(!setupAligned)decision='4H / 1H / 30M / 15M are mixed or not aligned. Top-down rule blocks the setup. WAIT.';
+    else if(!entryAligned)decision='Higher timeframes agree '+bias+', but 5M entry timing does not. WAIT for 5M confirmation.';
+    else decision='ALL FIVE TIMEFRAMES ALIGN '+bias+'. This is directional context only: one indicative provider is not independent source agreement, so final trade state remains WAIT.';
    }
    note.textContent='';
    const b=document.createElement('b');b.textContent='TOP-DOWN STATUS: ';note.appendChild(b);
    note.appendChild(document.createTextNode(decision));
+   const modelCells=document.querySelectorAll('.forecastcell b');
+   if(modelCells.length>1)modelCells[1].textContent=allFresh&&new Set(sides).size===1?'5/5 TF · 1 SOURCE':'TF MIXED / WAIT';
   }
  }
  async function loadWatchlist(){if(!apiReady)return;await Promise.all(PAIRS.map(pair=>loadQuote(pair,true)));}
@@ -945,11 +1152,13 @@ table .blank,.blank{color:#bdabb2!important}
  async function init(){
   if(await getStatus()){
    await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews(),loadMultiTimeframe(pairNow())]);
+   await startQuoteStream();
   }
-  setInterval(()=>{if(apiReady)loadQuote(pairNow(),false);},QUOTE_REFRESH_MS);
+  setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadQuote(pairNow(),false);},QUOTE_REFRESH_MS);
+  setInterval(()=>{if(apiReady)refreshQuoteAges();},5000);
   setInterval(()=>{if(apiReady)loadCalendar();},900000);
   setInterval(()=>{if(apiReady)loadMarketNews();},300000);
-  setInterval(()=>{if(apiReady)loadWatchlist();},WATCHLIST_REFRESH_MS);
+  setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadWatchlist();},WATCHLIST_REFRESH_MS);
   setInterval(()=>{if(apiReady){loadCandles(pairNow(),tfNow());loadMultiTimeframe(pairNow());}},CANDLE_REFRESH_MS);
   setInterval(async()=>{if(!apiReady)await getStatus();},60000);
  }
