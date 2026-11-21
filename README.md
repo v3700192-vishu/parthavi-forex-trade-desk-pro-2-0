@@ -21,6 +21,7 @@ Supported chart intervals: 5M, 15M, 30M, 1H and 4H.
 - `GET /api/forex/quote?pair=EUR/USD` — bid, ask, mid, spread, quote age and market state
 - `GET /api/forex/candles?pair=EUR/USD&timeframe=15M` — validated closed OHLC bars
 - `GET /api/forex/reference-rates` — daily ECB reference rates for the seven supported pairs, relayed by Frankfurter; reference context only, never a live signal
+- `GET /api/forex/fed-reference-rates` — Federal Reserve H.10 weekly-published daily observations, compared with ECB rates on the same observation date; reference validation only, never a live signal
 
 Biquote's terms permit using and displaying its data in web dashboards, but prohibit reselling or redistributing the raw feed. Its quotes/candles are indicative third-party data, may be delayed, incomplete or wrong, and have no uptime SLA. Do not present them as guaranteed executable broker prices or regulated benchmark rates. See:
 - https://biquote.io/docs/
