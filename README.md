@@ -7,7 +7,7 @@ Independent, prediction-only Forex analytics workspace. This repository is separ
 - Dashboard: https://parthavi-forex-trade-desk-pro-2-0.onrender.com
 - Data API: https://parthavi-forex-data-api.onrender.com
 - Dashboard and data API run as separate Render services.
-- Data provider: Biquote public REST API (no API key required).
+- Data provider: Biquote public REST and SignalR feed (no API key required).
 
 ## Market-data integration
 
@@ -25,7 +25,7 @@ Biquote's terms permit using and displaying its data in web dashboards, but proh
 - https://biquote.io/docs/
 - https://biquote.io/terms.html
 
-The dashboard refreshes the selected quote every 5 seconds, the 7-pair watchlist every 60 seconds, and the selected timeframe candles every 3 minutes. The API caches quote responses for 4 seconds and candles for 60 seconds, and applies a local per-IP request cap.
+The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`) with automatic reconnect. REST quote polling is the fallback if SignalR is unavailable. The selected timeframe candles refresh every 3 minutes; the API caches quote responses for 4 seconds and candles for 60 seconds, and applies a local per-IP request cap.
 
 ## Integrity rules
 
@@ -35,9 +35,9 @@ The dashboard refreshes the selected quote every 5 seconds, the 7-pair watchlist
 - Quote age and closed-candle age are checked separately for each timeframe. Stale or closed-market data blocks a fresh-data state.
 - Biquote is one indicative source, not independent source agreement. Therefore the forecast remains **WAIT** until independent corroboration, top-down timeframe checks, and out-of-sample probability calibration are implemented and validated.
 - No broker order execution is implemented.
-- EMA, RSI, MACD, ATR and Bollinger Bands are computed from returned closed OHLC candles. ADX and other unimplemented indicators remain blank. Real traded FX volume is not inferred from tick volume.
+- EMA, RSI, MACD, ATR, Bollinger Bands and Wilder ADX 14 are computed from returned closed OHLC candles. Confirmed swing points, BOS/CHoCH, support/resistance, 20-bar breakout checks and ATR distance planning are displayed as analytical context only. Real traded FX volume is not inferred from tick volume.
 
-## Run locally
+## Validation\n\n`npm run check` validates the backend syntax and every inline browser JavaScript block. GitHub Actions runs this check on each push to `main` and on pull requests.\n\n## Run locally
 
 ```bash
 npm install
