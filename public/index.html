@@ -296,6 +296,12 @@ table .blank,.blank{color:#bdabb2!important}
 .candle-chart .axislabel{fill:#cdbbc2;font-size:10px;font-family:Arial,sans-serif}
 @media(max-width:700px){.connector-title{font-size:8px}.connector-state{margin-left:0}.connector-actions{gap:10px}.data-connector{padding:10px 11px}}
 
+
+/* Six live quote cards: preserve readable layout on every screen */
+#liveStats{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media(max-width:1250px){#liveStats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){#liveStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 </style>
 </head>
 <body>
@@ -357,7 +363,7 @@ table .blank,.blank{color:#bdabb2!important}
     <div class="charttools"><span class="tool">CANDLES</span><span class="tool">EMA</span><span class="tool">RSI</span><span class="tool">MACD</span></div>
    </div>
    <div class="chartarea"><div class="chartempty" id="chartEmpty"><div class="charticon">⌁</div><strong>WAITING FOR FRESH PRICE FEED</strong><p>Real provider candles will render here after the secure API key is configured. No sample prices are shown.</p></div><div id="candleChart" class="candle-chart" hidden></div></div>
-   <div class="chartfoot"><span>DATA SOURCE: NOT CONNECTED</span><span>LAST CANDLE: —</span><span>TIMEZONE: UTC</span></div>
+   <div class="chartfoot"><span>SOURCE: BIQUOTE · INDICATIVE</span><span>LAST CLOSED BAR: —</span><span>TIMEZONE: UTC</span></div>
   </article>
   <article class="card forecast" id="forecast">
    <div class="forecasttop"><div class="eyebrow">AI DIRECTION ENGINE</div><span class="tag">68% VALIDATED GATE</span></div>
@@ -552,7 +558,8 @@ table .blank,.blank{color:#bdabb2!important}
  const pairNow=()=>$('#pairSelect')?.value||'EUR/USD';
  const tfNow=()=>$('#tfbar button.active')?.dataset.tf||'15M';
  const digits=pair=>pair.includes('JPY')?3:5;
- const fmt=(value,pair=pairNow())=>Number.isFinite(Number(value))?Number(value).toFixed(digits(pair)):'—';
+ const hasNumber=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value));
+ const fmt=(value,pair=pairNow())=>hasNumber(value)?Number(value).toFixed(digits(pair)):'—';
  const fmtPercent=value=>Number.isFinite(Number(value))?(Number(value)>=0?'+':'')+Number(value).toFixed(3)+'%':'—';
  const isoShort=value=>value?String(value).replace('T',' ').replace('Z',' UTC').slice(0,23):'—';
 
