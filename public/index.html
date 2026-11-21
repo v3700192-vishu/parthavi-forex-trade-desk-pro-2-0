@@ -277,6 +277,25 @@ table .blank,.blank{color:#bdabb2!important}
  .brandname{font-size:clamp(10.5px,3.5vw,13px);letter-spacing:-.035em}
 }
 
+
+/* DATA CONNECTOR / CANDLE CHART */
+.data-connector{margin:0 0 13px;padding:12px 15px;background:linear-gradient(110deg,rgba(92,7,26,.45),rgba(26,8,14,.92));border-color:rgba(255,213,46,.32)}
+.connector-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:9px;letter-spacing:.12em;color:#fff}
+.connector-led{width:8px;height:8px;border-radius:50%;background:#e5b900;box-shadow:0 0 9px rgba(229,185,0,.4)}
+.connector-state{margin-left:auto;color:#ffe27a;font-size:8px}
+.data-connector p{font-size:9px;color:#d7c6cd;margin:6px 0 9px}
+.connector-actions{display:flex;gap:14px;flex-wrap:wrap}
+.connector-actions a{font-size:8px;color:#ffe27a;text-decoration:underline;text-underline-offset:3px}
+.stattime{font-size:12px!important;letter-spacing:0!important;overflow-wrap:anywhere}
+.candle-chart{position:absolute;inset:0;width:100%;height:100%;padding:8px}
+.candle-chart svg{width:100%;height:100%;display:block;overflow:visible}
+.candle-chart .wick{stroke-width:1.25}
+.candle-chart .up{fill:#54d6a0;stroke:#54d6a0}
+.candle-chart .down{fill:#ff7884;stroke:#ff7884}
+.candle-chart .gridline{stroke:rgba(255,213,46,.15);stroke-width:1;stroke-dasharray:4 6}
+.candle-chart .axislabel{fill:#cdbbc2;font-size:10px;font-family:Arial,sans-serif}
+@media(max-width:700px){.connector-title{font-size:8px}.connector-state{margin-left:0}.connector-actions{gap:10px}.data-connector{padding:10px 11px}}
+
 </style>
 </head>
 <body>
@@ -318,12 +337,17 @@ table .blank,.blank{color:#bdabb2!important}
    <div class="tfbar" id="tfbar"><button data-tf="5M">5M</button><button data-tf="15M" class="active">15M</button><button data-tf="30M">30M</button><button data-tf="1H">1H</button><button data-tf="4H">4H</button></div>
   </div>
  </div>
- <div class="grid stats">
+ <div class="grid stats" id="liveStats">
   <div class="card stat"><div class="statlabel">SELECTED PAIR</div><div class="statvalue" id="statPair">EUR/USD</div><div class="statnote">Major currency pair</div></div>
-  <div class="card stat"><div class="statlabel">BID PRICE</div><div class="statvalue">—</div><div class="statnote">Awaiting verified quote</div></div>
-  <div class="card stat"><div class="statlabel">ASK PRICE</div><div class="statvalue">—</div><div class="statnote">Awaiting verified quote</div></div>
-  <div class="card stat"><div class="statlabel">SPREAD</div><div class="statvalue">—</div><div class="statnote">Live bid / ask required</div></div>
-  <div class="card stat"><div class="statlabel">MARKET CHANGE</div><div class="statvalue">—</div><div class="statnote">No verified price series</div></div>
+  <div class="card stat"><div class="statlabel">LATEST CLOSE</div><div class="statvalue" id="lastPrice">—</div><div class="statnote" id="lastPriceNote">Waiting for verified candles</div></div>
+  <div class="card stat"><div class="statlabel">LAST CANDLE · UTC</div><div class="statvalue stattime" id="lastCandleAt">—</div><div class="statnote">Provider timestamp</div></div>
+  <div class="card stat"><div class="statlabel">CANDLE CHANGE</div><div class="statvalue" id="lastMove">—</div><div class="statnote">Latest close vs prior close</div></div>
+  <div class="card stat"><div class="statlabel">DATA QUALITY</div><div class="statvalue" id="feedQuality">WAIT</div><div class="statnote" id="feedQualityNote">No verified feed yet</div></div>
+ </div>
+ <div class="card data-connector" id="dataConnectorNotice">
+  <div class="connector-title"><span class="connector-led" id="connectorLed"></span><b>VERIFIED FOREX DATA CONNECTION</b><span class="connector-state" id="connectorState">CHECKING BACKEND</span></div>
+  <p id="connectorMessage">Checking the secure market-data service. No prices or signals are assumed.</p>
+  <div class="connector-actions"><a href="https://twelvedata.com/pricing" target="_blank" rel="noopener">Twelve Data · Free Basic</a><a href="https://dashboard.render.com/web/srv-dc0ndne1egvs738fskd0" target="_blank" rel="noopener">Open secure API settings</a></div>
  </div>
  <div class="grid row2">
   <article class="card chartpanel" id="chart">
@@ -331,7 +355,7 @@ table .blank,.blank{color:#bdabb2!important}
     <div><div class="charttitle"><span id="chartPair">EUR/USD</span> <span class="mutedtext">·</span> <span id="chartTf">15M</span> Chart</div><div class="chartmeta">Candles · price structure · support/resistance · volume where available</div></div>
     <div class="charttools"><span class="tool">CANDLES</span><span class="tool">EMA</span><span class="tool">RSI</span><span class="tool">MACD</span></div>
    </div>
-   <div class="chartarea"><div class="chartempty"><div class="charticon">⌁</div><strong>WAITING FOR VERIFIED PRICE FEED</strong><p>Chart, candles and drawing levels will render when historical and live quotes are connected. No sample prices are shown.</p></div></div>
+   <div class="chartarea"><div class="chartempty" id="chartEmpty"><div class="charticon">⌁</div><strong>WAITING FOR VERIFIED PRICE FEED</strong><p>Real provider candles will render here after the secure API key is configured. No sample prices are shown.</p></div><div id="candleChart" class="candle-chart" hidden></div></div>
    <div class="chartfoot"><span>DATA SOURCE: NOT CONNECTED</span><span>LAST CANDLE: —</span><span>TIMEZONE: UTC</span></div>
   </article>
   <article class="card forecast" id="forecast">
@@ -349,7 +373,7 @@ table .blank,.blank{color:#bdabb2!important}
 
 <section class="section" id="watchlist">
  <div class="sectionhead"><div><div class="eyebrow">SEVEN MAJOR PAIRS</div><h2>Market Watchlist</h2><p>Choose a pair to update the analysis workspace.</p></div><span class="tag muted">LIVE QUOTES PENDING</span></div>
- <div class="card"><div class="tablewrap"><table id="watchTable"><thead><tr><th>CURRENCY PAIR</th><th>BID</th><th>ASK</th><th>SPREAD</th><th>DAY CHANGE</th><th>SESSION</th><th>FEED</th></tr></thead><tbody>
+ <div class="card"><div class="tablewrap"><table id="watchTable"><thead><tr><th>CURRENCY PAIR</th><th>LAST PRICE</th><th>15M CHANGE</th><th>LAST CANDLE · UTC</th><th>ASSET</th><th>PROVIDER</th><th>FEED</th></tr></thead><tbody>
  <tr class="pairrow selected" data-pair-row="EUR/USD"><td><div class="paircode">EUR/USD</div><div class="pairdesc">Euro / US Dollar</div></td><td class="blank">—</td><td class="blank">—</td><td class="blank">—</td><td class="blank">—</td><td class="blank">—</td><td class="statuscell">NO FEED</td></tr>
  <tr class="pairrow" data-pair-row="GBP/USD"><td><div class="paircode">GBP/USD</div><div class="pairdesc">British Pound / US Dollar</div></td><td class="blank">—</td><td class="blank">—</td><td class="blank">—</td><td class="blank">—</td><td class="blank">—</td><td class="statuscell">NO FEED</td></tr>
  <tr class="pairrow" data-pair-row="USD/JPY"><td><div class="paircode">USD/JPY</div><div class="pairdesc">US Dollar / Japanese Yen</div></td><td class="blank">—</td><td class="blank">—</td><td class="blank">—</td><td class="blank">—</td><td class="blank">—</td><td class="statuscell">NO FEED</td></tr>
@@ -511,6 +535,235 @@ table .blank,.blank{color:#bdabb2!important}
  },{rootMargin:'-18% 0px -68% 0px'});
  sections.forEach(section=>observer.observe(section));
  setPair(selectedPair);setTf(selectedTf);
+})();
+</script>
+
+<script>
+(() => {
+ 'use strict';
+ const API_BASE = 'https://parthavi-forex-data-api.onrender.com';
+ const PAIRS = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD'];
+ const INTERVAL_MS = 180000;
+ const WATCHLIST_MS = 3600000;
+ let apiConfigured = false;
+ let lastWatchlistLoad = 0;
+ let currentCandles = [];
+
+ const $ = (selector) => document.querySelector(selector);
+ const pairNow = () => ($('#pairSelect')?.value || 'EUR/USD');
+ const tfNow = () => ($('#tfbar button.active')?.dataset.tf || '15M');
+ const digits = pair => pair.includes('JPY') ? 3 : 5;
+ const fmt = (value, pair=pairNow()) => Number.isFinite(value) ? value.toFixed(digits(pair)) : '—';
+
+ function connector(state, message, good=false) {
+   const stateEl=$('#connectorState'), msg=$('#connectorMessage'), led=$('#connectorLed');
+   if(stateEl) stateEl.textContent=state;
+   if(msg) msg.textContent=message;
+   if(led) {
+     led.style.background=good?'#55d6a0':'#e5b900';
+     led.style.boxShadow=good?'0 0 9px rgba(85,214,160,.5)':'0 0 9px rgba(229,185,0,.4)';
+   }
+   const top=$('.topbar .statuspill');
+   if(top) top.innerHTML='<i class="statusdot"></i> '+(good?'FOREX DATA CONNECTED':state);
+ }
+
+ async function getStatus() {
+   try {
+     const response=await fetch(API_BASE+'/api/forex/status',{cache:'no-store',signal:AbortSignal.timeout(12000)});
+     if(!response.ok) throw new Error('backend_http_'+response.status);
+     const status=await response.json();
+     apiConfigured=Boolean(status.providerConfigured);
+     if(!apiConfigured) {
+       connector('API KEY REQUIRED','Create a free Twelve Data Basic account, then add TWELVE_DATA_API_KEY in the secure Render API service Environment. Never paste the key into the public website.',false);
+       $('#feedQuality').textContent='WAIT';
+       $('#feedQualityNote').textContent='Provider key not configured';
+       return false;
+     }
+     connector('PROVIDER KEY READY','Secure backend has a provider key. Requesting real candles; market signals remain blocked until all checks pass.',true);
+     return true;
+   } catch(error) {
+     apiConfigured=false;
+     connector('BACKEND WAKING','The free API service may be waking from sleep or temporarily unavailable. No market data is being used.',false);
+     return false;
+   }
+ }
+
+ function ema(values, period) {
+   if(values.length<period) return NaN;
+   const k=2/(period+1);
+   let value=values.slice(0,period).reduce((a,b)=>a+b,0)/period;
+   for(let i=period;i<values.length;i++) value=values[i]*k+value*(1-k);
+   return value;
+ }
+ function rsi(values,period=14) {
+   if(values.length<period+1) return NaN;
+   let gain=0,loss=0;
+   for(let i=1;i<=period;i++){const d=values[i]-values[i-1];if(d>0)gain+=d;else loss-=d;}
+   let avgGain=gain/period,avgLoss=loss/period;
+   for(let i=period+1;i<values.length;i++){const d=values[i]-values[i-1];avgGain=(avgGain*(period-1)+Math.max(d,0))/period;avgLoss=(avgLoss*(period-1)+Math.max(-d,0))/period;}
+   if(avgLoss===0) return 100;
+   return 100-(100/(1+avgGain/avgLoss));
+ }
+ function atr(candles,period=14) {
+   if(candles.length<period+1) return NaN;
+   const tr=[];
+   for(let i=1;i<candles.length;i++){
+     const c=candles[i],p=candles[i-1];
+     tr.push(Math.max(c.high-c.low,Math.abs(c.high-p.close),Math.abs(c.low-p.close)));
+   }
+   return tr.slice(-period).reduce((a,b)=>a+b,0)/period;
+ }
+ function bollinger(values,period=20) {
+   if(values.length<period)return null;
+   const window=values.slice(-period),mean=window.reduce((a,b)=>a+b,0)/period;
+   const variance=window.reduce((a,b)=>a+(b-mean)**2,0)/period;
+   const sd=Math.sqrt(variance);
+   return {upper:mean+2*sd,middle:mean,lower:mean-2*sd};
+ }
+ function macd(values) {
+   if(values.length<35)return null;
+   const fast=[],slow=[];
+   const make=(period,out)=>{
+     const k=2/(period+1);let e=values.slice(0,period).reduce((a,b)=>a+b,0)/period;
+     out[period-1]=e;
+     for(let i=period;i<values.length;i++){e=values[i]*k+e*(1-k);out[i]=e;}
+   };
+   make(12,fast);make(26,slow);
+   const line=[];
+   for(let i=25;i<values.length;i++)line.push(fast[i]-slow[i]);
+   if(line.length<9)return null;
+   const signal=ema(line,9);
+   return {line:line[line.length-1],signal,hist:line[line.length-1]-signal};
+ }
+ function renderIndicators(candles,pair) {
+   const values=candles.map(c=>c.close), cards=document.querySelectorAll('#technicals .indicators .indicator');
+   if(cards.length<8)return;
+   const set=(index,value,note)=>{
+     const b=cards[index].querySelector('b');if(b)b.textContent=value;
+     const em=cards[index].querySelector('em');if(em&&note)em.textContent=note;
+   };
+   set(0,fmt(ema(values,9),pair)+' / '+fmt(ema(values,21),pair),'EMA 9 / 21 from verified candles');
+   set(1,fmt(ema(values,50),pair)+' / '+fmt(ema(values,200),pair),'EMA 50 / 200 from loaded history');
+   const rv=rsi(values);
+   set(2,Number.isFinite(rv)?rv.toFixed(1):'—',Number.isFinite(rv)?(rv>=70?'Overbought zone':rv<=30?'Oversold zone':'RSI 14 · neutral range'):'Need 15+ candles');
+   const m=macd(values);
+   set(3,m?m.line.toFixed(digits(pair))+' / '+m.signal.toFixed(digits(pair)):'—','MACD line / signal · computed locally');
+   set(4,'—','ADX requires validated directional movement history');
+   const av=atr(candles);
+   set(5,Number.isFinite(av)?fmt(av,pair):'—','ATR 14 · computed locally');
+   const bb=bollinger(values);
+   set(6,bb?fmt(bb.upper,pair)+' / '+fmt(bb.middle,pair)+' / '+fmt(bb.lower,pair):'—','Upper / basis / lower');
+   set(7,'N/A','Spot FX consolidated volume is not provided');
+ }
+ function renderChart(candles,pair) {
+   const area=$('#candleChart'), empty=$('#chartEmpty');
+   if(!area||candles.length<2)return;
+   const data=candles.slice(-90),hi=Math.max(...data.map(c=>c.high)),lo=Math.min(...data.map(c=>c.low));
+   const range=hi-lo||Math.abs(hi)*0.0001||1,top=18,bottom=264,left=20,right=980;
+   const y=v=>top+(hi-v)/range*(bottom-top);
+   const slot=(right-left)/data.length,bodyWidth=Math.max(2,Math.min(8,slot*.58));
+   let parts='';
+   for(let i=0;i<5;i++){const yy=top+(bottom-top)*i/4;parts+='<line class="gridline" x1="'+left+'" y1="'+yy+'" x2="'+right+'" y2="'+yy+'"/>';}
+   data.forEach((c,i)=>{
+     const x=left+slot*i+slot/2,yo=y(c.open),yc=y(c.close),yh=y(c.high),yl=y(c.low);
+     const klass=c.close>=c.open?'up':'down',height=Math.max(2,Math.abs(yc-yo));
+     parts+='<line class="wick '+klass+'" x1="'+x+'" y1="'+yh+'" x2="'+x+'" y2="'+yl+'"/>';
+     parts+='<rect class="'+klass+'" x="'+(x-bodyWidth/2)+'" y="'+Math.min(yo,yc)+'" width="'+bodyWidth+'" height="'+height+'" rx="1"/>';
+   });
+   parts+='<text class="axislabel" x="22" y="292">'+data[0].time+'</text>';
+   parts+='<text class="axislabel" x="978" y="292" text-anchor="end">'+data[data.length-1].time+'</text>';
+   parts+='<text class="axislabel" x="978" y="13" text-anchor="end">'+fmt(hi,pair)+'</text>';
+   parts+='<text class="axislabel" x="978" y="278" text-anchor="end">'+fmt(lo,pair)+'</text>';
+   area.innerHTML='<svg viewBox="0 0 1000 300" role="img" aria-label="'+pair+' verified candlestick chart">'+parts+'</svg>';
+   area.hidden=false;if(empty)empty.hidden=true;
+ }
+ function updateWatchRow(pair,result) {
+   const row=document.querySelector('[data-pair-row="'+pair+'"]');
+   if(!row)return;
+   const cells=row.querySelectorAll('td'),c=result.candles,last=c[c.length-1],prev=c[c.length-2];
+   const pct=prev.close?((last.close-prev.close)/prev.close*100):NaN;
+   cells[1].textContent=fmt(last.close,pair);
+   cells[2].textContent=Number.isFinite(pct)?(pct>=0?'+':'')+pct.toFixed(3)+'%':'—';
+   cells[3].textContent=last.time;
+   cells[4].textContent='FX';
+   cells[5].textContent=PROVIDER;
+   cells[6].textContent=result.meta.freshness;
+ }
+ function setErrorOnWatchRow(pair,label) {
+   const row=document.querySelector('[data-pair-row="'+pair+'"]');if(!row)return;
+   const cells=row.querySelectorAll('td');
+   for(let i=1;i<cells.length;i++)cells[i].textContent=i===6?label:'—';
+ }
+ async function loadCandles(pair,timeframe,forWatchlist=false) {
+   const url=API_BASE+'/api/forex/candles?pair='+encodeURIComponent(pair)+'&timeframe='+encodeURIComponent(timeframe);
+   try {
+     const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(20000)});
+     const data=await response.json();
+     if(!response.ok||!data.ok) {
+       const err=data.error||('http_'+response.status);
+       setErrorOnWatchRow(pair,err==='provider_key_missing'?'KEY REQUIRED':err==='daily_safety_cap'?'LIMIT':'NO DATA');
+       if(!forWatchlist) {
+         const msg=err==='provider_key_missing'?'Add TWELVE_DATA_API_KEY to the secure Render API service Environment.':
+           err==='daily_safety_cap'?'Free daily API safety cap reached. Data is blocked until UTC reset.':
+           err==='minute_guard'?'API minute limit reached. Wait before requesting again.':
+           'Provider returned no usable candles ('+err+'). Check account coverage and endpoint permission.';
+         connector('NO VERIFIED CANDLES',msg,false);
+         $('#feedQuality').textContent='WAIT';$('#feedQualityNote').textContent=err;
+         if($('#chartEmpty')){ $('#chartEmpty').hidden=false;$('#candleChart').hidden=true; }
+       }
+       return null;
+     }
+     updateWatchRow(pair,data);
+     if(!forWatchlist && pair===pairNow() && timeframe===tfNow()) {
+       currentCandles=data.candles;
+       const candles=data.candles,last=candles[candles.length-1],prev=candles[candles.length-2];
+       const pct=prev.close?((last.close-prev.close)/prev.close*100):NaN;
+       $('#lastPrice').textContent=fmt(last.close,pair);
+       $('#lastPriceNote').textContent='Twelve Data · '+data.meta.candleCount+' candles loaded';
+       $('#lastCandleAt').textContent=last.time;
+       $('#lastMove').textContent=Number.isFinite(pct)?(pct>=0?'+':'')+pct.toFixed(3)+'%':'—';
+       $('#feedQuality').textContent=data.meta.freshness;
+       $('#feedQualityNote').textContent='Age '+data.meta.ageSeconds+' sec · '+data.meta.candleCount+' valid bars';
+       renderChart(candles,pair);
+       renderIndicators(candles,pair);
+       if(data.meta.freshness==='FRESH') connector('CANDLES VERIFIED','Fresh '+timeframe+' candles loaded from '+data.provider+'. Mid-price candle close only; bid/ask and spread are not inferred. Forecast remains WAIT pending multi-timeframe and calibration checks.',true);
+       else connector('STALE DATA','Provider candle age is '+data.meta.ageSeconds+' seconds. Stale data cannot produce a forecast.',false);
+     }
+     return data;
+   } catch(error) {
+     setErrorOnWatchRow(pair,'OFFLINE');
+     if(!forWatchlist)connector('BACKEND UNAVAILABLE','The data service did not respond. No market price or signal has been generated.',false);
+     return null;
+   }
+ }
+ async function loadWatchlist() {
+   if(!apiConfigured)return;
+   const results=await Promise.all(PAIRS.map(pair=>loadCandles(pair,'15M',true)));
+   lastWatchlistLoad=Date.now();
+   const successes=results.filter(Boolean).length;
+   if(successes===0) connector('NO VERIFIED PAIRS','No pair has returned enough valid candles. Signals remain WAIT.',false);
+ }
+ async function refreshSelected() {
+   if(!apiConfigured)return;
+   await loadCandles(pairNow(),tfNow(),false);
+ }
+ async function init() {
+   const ready=await getStatus();
+   if(ready) {
+     await loadWatchlist();
+     await refreshSelected();
+   }
+   setInterval(async()=>{
+     const wasConfigured=apiConfigured,nowReady=await getStatus();
+     if(nowReady&&!wasConfigured){await loadWatchlist();await refreshSelected();}
+   },60000);
+   setInterval(()=>{if(apiConfigured)refreshSelected();},INTERVAL_MS);
+   setInterval(()=>{if(apiConfigured && Date.now()-lastWatchlistLoad>=WATCHLIST_MS)loadWatchlist();},60000);
+ }
+ $('#pairSelect')?.addEventListener('change',()=>setTimeout(refreshSelected,0));
+ document.querySelectorAll('#tfbar button').forEach(button=>button.addEventListener('click',()=>setTimeout(refreshSelected,0)));
+ document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(refreshSelected,0)));
+ init();
 })();
 </script>
 </body>
