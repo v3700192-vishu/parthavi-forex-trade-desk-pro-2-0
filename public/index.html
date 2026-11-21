@@ -635,6 +635,11 @@ body{color:#fff!important}
   <div class="tablewrap"><table><thead><tr><th>PAIR</th><th>ECB REFERENCE RATE</th><th>CHANGE VS PRIOR ECB DAY</th><th>RATE DATE</th></tr></thead><tbody id="ecbReferenceBody"><tr><td colspan="4" class="blank" style="text-align:center;padding:18px">Waiting for independent daily reference rates…</td></tr></tbody></table></div>
   <div class="notice" id="ecbReferenceNote" style="margin-top:10px">European Central Bank daily reference rates, relayed by Frankfurter API. This is a separate reference-data cross-check only, not a live quote, executable price or intraday directional vote.</div>
  </div>
+ <div class="card section" id="fedReferenceCard">
+  <div class="cardhead"><h3>Federal Reserve H.10 Weekly Reference Cross-Check</h3><span class="tag muted" id="fedReferenceStatus">SOURCE CONNECTING</span></div>
+  <div class="tablewrap"><table><thead><tr><th>PAIR</th><th>FED H.10 RATE</th><th>ECB RATE · SAME DATE</th><th>DIFFERENCE VS ECB</th><th>OBSERVATION DATE</th></tr></thead><tbody id="fedReferenceBody"><tr><td colspan="5" class="blank" style="text-align:center;padding:18px">Waiting for Federal Reserve H.10 reference data…</td></tr></tbody></table></div>
+  <div class="notice" id="fedReferenceNote" style="margin-top:10px">Federal Reserve H.10 daily observations are released weekly. Values are compared with ECB reference rates on the same date. This is reference validation only, never a live quote, executable price or intraday directional vote.</div>
+ </div>
  <div class="card section" id="marketNewsCard">
   <div class="cardhead"><h3>Latest Market News</h3><span class="tag muted" id="marketNewsStatus">SOURCE CONNECTING</span></div>
   <div id="marketNewsFeed" class="news-feed"><div class="notice">Market headlines will appear when the upstream news feed responds.</div></div>
@@ -1215,6 +1220,43 @@ body{color:#fff!important}
    if(note)note.textContent='No substitute or estimated rate is shown. Live trade signals remain blocked without independently verified data.';
   }
  }
+ async function loadFedReferenceRates(){
+  const body=$('#fedReferenceBody'),status=$('#fedReferenceStatus'),note=$('#fedReferenceNote');
+  if(!body)return;
+  try{
+   const data=await requestJson('/api/forex/fed-reference-rates',30000);
+   if(!data.ok||!Array.isArray(data.pairs)||data.pairs.length!==7||!data.meta)throw new Error(data.error||'invalid_fed_reference_response');
+   body.innerHTML='';
+   data.pairs.forEach(item=>{
+    const tr=document.createElement('tr');
+    const difference=Number(item.differencePercent);
+    const values=[
+     item.pair,
+     Number.isFinite(Number(item.fedRate))?Number(item.fedRate).toFixed(item.pair.includes('JPY')?3:5):'—',
+     Number.isFinite(Number(item.ecbRate))?Number(item.ecbRate).toFixed(item.pair.includes('JPY')?3:5):'—',
+     Number.isFinite(difference)?(difference>=0?'+':'')+difference.toFixed(3)+'%':'—',
+     item.date||'—'
+    ];
+    values.forEach((value,index)=>{
+     const td=document.createElement('td');td.textContent=value;
+     if(index===0)td.style.fontWeight='900';
+     if(index===3&&Number.isFinite(difference)){td.style.fontWeight='900';}
+     tr.appendChild(td);
+    });
+    body.appendChild(tr);
+   });
+   if(status)status.textContent='FED H.10 · '+data.meta.observationDate+' · '+data.meta.freshness;
+   if(note)note.textContent='Source: Board of Governors of the Federal Reserve System, H.10 via FRED. Latest common observation '+data.meta.observationDate+' ('+data.meta.ageDays+' calendar days old). Difference is Fed H.10 versus ECB on the identical date; differing fixing times can create small gaps. Weekly reference context only; never an intraday trade vote.';
+  }catch(error){
+   body.innerHTML='';
+   const tr=document.createElement('tr'),td=document.createElement('td');
+   td.colSpan=5;td.className='blank';td.style.textAlign='center';td.style.padding='18px';
+   td.textContent='Federal Reserve reference data unavailable: '+String(error.message||'upstream_error');
+   tr.appendChild(td);body.appendChild(tr);
+   if(status)status.textContent='FED H.10 SOURCE UNAVAILABLE';
+   if(note)note.textContent='No substitute or estimated rate is shown. Missing or stale independent reference data never authorises a live signal.';
+  }
+ }
  async function loadCalendar(){
   const body=$('#economicCalendarBody'),status=$('#calendarStatus');
   if(!body)return;
@@ -1512,6 +1554,7 @@ body{color:#fff!important}
  async function init(){
   if(await getStatus()){
    await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews(),loadMultiTimeframe(pairNow()),loadCrossPairAnalytics(),loadEcbReferenceRates()]);
+   loadFedReferenceRates();
    await startQuoteStream();
   }
   setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadQuote(pairNow(),false);},QUOTE_REFRESH_MS);
@@ -1520,6 +1563,7 @@ body{color:#fff!important}
   setInterval(()=>{if(apiReady)loadCrossPairAnalytics();},900000);
   setInterval(()=>{if(apiReady)loadMarketNews();},300000);
   setInterval(()=>{if(apiReady)loadEcbReferenceRates();},900000);
+  setInterval(()=>{if(apiReady)loadFedReferenceRates();},21600000);
   setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadWatchlist();},WATCHLIST_REFRESH_MS);
   setInterval(()=>{if(apiReady){loadCandles(pairNow(),tfNow());loadMultiTimeframe(pairNow());}},CANDLE_REFRESH_MS);
   setInterval(async()=>{if(!apiReady)await getStatus();},60000);
