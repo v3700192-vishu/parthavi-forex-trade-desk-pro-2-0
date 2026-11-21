@@ -294,7 +294,33 @@ const server=http.createServer(async(req,res)=>{
   }
   return respond(res,404,{ok:false,error:'not_found'});
 });
+async function upstreamSelfCheck() {
+  const checks = [
+    ['EURUSD quote', () => getQuote('EUR/USD')],
+    ['EURUSD 15M candles', () => getCandles('EUR/USD','15M')],
+    ['economic calendar', () => getCalendar()],
+    ['market news', () => getNews()]
+  ];
+  const results = await Promise.allSettled(checks.map(([,run]) => run()));
+  results.forEach((result,index) => {
+    const label=checks[index][0];
+    if(result.status!=='fulfilled') {
+      console.log('[UPSTREAM_CHECK] '+label+'=FAILED reason='+safeError(result.reason));
+      return;
+    }
+    const value=result.value;
+    if(label==='EURUSD quote') {
+      console.log('[UPSTREAM_CHECK] '+label+'=OK freshness='+value.meta.freshness+' ageSeconds='+value.meta.quoteAgeSeconds+' state='+value.quote.marketState);
+    } else if(label==='EURUSD 15M candles') {
+      console.log('[UPSTREAM_CHECK] '+label+'=OK freshness='+value.meta.freshness+' closedBars='+value.candles.length);
+    } else {
+      console.log('[UPSTREAM_CHECK] '+label+'=OK items='+value.items.length);
+    }
+  });
+}
+
 server.listen(PORT,'0.0.0.0',()=>{
   console.log('[PARTHAVI_FOREX_API] listening port='+PORT);
   console.log('[PARTHAVI_FOREX_API] provider='+PROVIDER+' key_required=false');
+  upstreamSelfCheck().catch(error=>console.log('[UPSTREAM_CHECK] unexpected_failure='+safeError(error)));
 });
