@@ -298,7 +298,6 @@ async function getFederalReserveReferenceRates() {
     const e=new Error('ecb_overlap_http_'+ecbResponse.status);e.statusCode=502;throw e;
   }
   const ecbRows=await ecbResponse.json();
-  console.log('[FED_ECB_REFERENCE_FETCH] status='+ecbResponse.status+' url='+ecbUrl.toString()+' rows='+(Array.isArray(ecbRows)?ecbRows.length:'not_array'));
   if(!Array.isArray(ecbRows)) {
     const e=new Error('ecb_overlap_invalid_response');e.statusCode=502;throw e;
   }
@@ -307,7 +306,7 @@ async function getFederalReserveReferenceRates() {
     const date=String(row.date||'').slice(0,10);
     const quote=String(row.quote||'').toUpperCase();
     const rate=Number(row.rate);
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||
        !REFERENCE_CURRENCIES.includes(quote)||!Number.isFinite(rate)||rate<=0)return;
     if(!ecbByDate.has(date))ecbByDate.set(date,{});
     ecbByDate.get(date)[quote]=rate;
@@ -320,10 +319,6 @@ async function getFederalReserveReferenceRates() {
     return rates&&REFERENCE_CURRENCIES.every(currency=>Number.isFinite(rates[currency])&&rates[currency]>0);
   });
   if(!commonComparisonDates.length) {
-    console.warn('[FED_ECB_REFERENCE_DIAG] fedDates='+fedDates.slice(-5).join(',')+
-      ' ecbDates='+ecbDates.slice(-5).join(',')+
-      ' ecbLatestQuotes='+Object.keys(latestEcbRates).sort().join(',')+
-      ' requiredQuotes='+REFERENCE_CURRENCIES.join(','));
     const e=new Error('fred_ecb_no_common_reference_date');e.statusCode=502;throw e;
   }
   const observationDate=commonComparisonDates[commonComparisonDates.length-1];
