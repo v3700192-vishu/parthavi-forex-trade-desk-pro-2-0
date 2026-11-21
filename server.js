@@ -241,7 +241,7 @@ function parseFredCsv(text,seriesId) {
   if(typeof text!=='string'||text.length>1000000) {
     const e=new Error('fred_csv_invalid_size');e.statusCode=502;throw e;
   }
-  const lines=text.trim().split(/\\r?\\n/);
+  const lines=text.trim().split(/\r?\n/);
   const header=(lines.shift()||'').split(',');
   if(header[0]!=='observation_date'||header[1]!==seriesId) {
     const e=new Error('fred_csv_invalid_header_'+seriesId);e.statusCode=502;throw e;
@@ -252,7 +252,7 @@ function parseFredCsv(text,seriesId) {
     const date=String(cells[0]||'').trim();
     const raw=String(cells[1]||'').trim();
     const value=Number(raw);
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||!raw||raw==='.'||!Number.isFinite(value)||value<=0)continue;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!raw||raw==='.'||!Number.isFinite(value)||value<=0)continue;
     observations.set(date,value);
   }
   return observations;
