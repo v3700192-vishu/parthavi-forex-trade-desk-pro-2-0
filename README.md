@@ -39,6 +39,21 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - No broker order execution is implemented.
 - EMA, RSI, MACD, ATR, Bollinger Bands and Wilder ADX 14 are computed from returned closed OHLC candles. Confirmed swing points, BOS/CHoCH, support/resistance, 20-bar breakout checks and ATR distance planning are displayed as analytical context only. Real traded FX volume is not inferred from tick volume.
 
+## Risk and signal gating
+
+- ATR 14, per-bar realised volatility (20/50 closed returns) and ADX-based regime are calculated from the selected timeframe's closed candles.
+- The calendar gate blocks on high-impact events for either pair currency from 15 minutes before to 60 minutes after the event.
+- The displayed spread is the current Biquote quote spread only; no long-run normal-spread benchmark is available.
+- Daily range and session-specific volatility are not inferred because the current endpoint does not provide the required daily/session dataset.
+- Order-book liquidity is not measured because Level-2 depth is not supplied.
+- ECB and Federal Reserve H.10 rates are daily/weekly reference comparisons only; neither is an intraday directional vote.
+- Central-bank policy bias, risk sentiment, CPI/employment surprises and news sentiment are not yet verified/scored. Missing evidence remains WAIT.
+- No trade forecast or probability is issued until an independent permitted live-price source, all required risk checks, and out-of-sample calibration at or above the 68% threshold are demonstrated.
+
+## Performance and calibration
+
+The dashboard intentionally shows no accuracy, precision/recall, Brier score, MFE/MAE, or forecast outcomes until a durable outcome ledger and a walk-forward evaluation set exist. No sample or synthetic performance values are used.
+
 ## Derived cross-pair analytics
 
 - Currency strength is a relative average contribution derived from the last up to 96 synchronized 15M closed-bar returns across the seven supported pairs. It is not a broad-market benchmark or a separate fundamental source.
