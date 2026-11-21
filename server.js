@@ -115,7 +115,7 @@ async function getQuote(pair) {
       ask:numericValid?ask:null,
       mid:numericValid?mid:null,
       spread:numericValid?spread:null,
-      dayDiffPercent:Number.isFinite(Number(data.dayDiffPercent))?Number(data.dayDiffPercent):null,
+      dayDiffPercent:data.marketState==='open' && data.dayDiffPercent!==null && data.dayDiffPercent!==undefined && Number.isFinite(Number(data.dayDiffPercent))?Number(data.dayDiffPercent):null,
       timestamp:Number.isFinite(timestamp)?new Date(timestamp).toISOString():null,
       source:String(data.source || 'Biquote feed').slice(0,100),
       marketState:String(data.marketState || 'unknown'),
