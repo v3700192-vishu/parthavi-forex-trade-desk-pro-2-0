@@ -37,7 +37,11 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - No broker order execution is implemented.
 - EMA, RSI, MACD, ATR, Bollinger Bands and Wilder ADX 14 are computed from returned closed OHLC candles. Confirmed swing points, BOS/CHoCH, support/resistance, 20-bar breakout checks and ATR distance planning are displayed as analytical context only. Real traded FX volume is not inferred from tick volume.
 
-## Validation\n\n`npm run check` validates the backend syntax and every inline browser JavaScript block. GitHub Actions runs this check on each push to `main` and on pull requests.\n\n## Run locally
+## Validation
+
+`npm run check` validates the backend syntax and every inline browser JavaScript block. GitHub Actions runs this check on each push to `main` and on pull requests.
+
+## Run locally
 
 ```bash
 npm install
