@@ -1,8 +1,8 @@
 {
   "name": "parthavi-forex-data-api",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Secure market-data gateway for PARTHAVI FOREX TRADE DESK PRO 2.0",
+  "description": "No-key indicative market data gateway for PARTHAVI FOREX TRADE DESK PRO 2.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -11,7 +11,5 @@
   "engines": {
     "node": ">=20"
   },
-  "dependencies": {
-    "ws": "^8.18.3"
-  }
+  "dependencies": {}
 }
