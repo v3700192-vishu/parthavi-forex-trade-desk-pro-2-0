@@ -311,11 +311,18 @@ async function getFederalReserveReferenceRates() {
     if(!ecbByDate.has(date))ecbByDate.set(date,{});
     ecbByDate.get(date)[quote]=rate;
   });
+  const ecbDates=[...ecbByDate.keys()].sort();
+  const latestEcbDate=ecbDates[ecbDates.length-1]||'none';
+  const latestEcbRates=ecbByDate.get(latestEcbDate)||{};
   const commonComparisonDates=fedDates.filter(date=>{
     const rates=ecbByDate.get(date);
     return rates&&REFERENCE_CURRENCIES.every(currency=>Number.isFinite(rates[currency])&&rates[currency]>0);
   });
   if(!commonComparisonDates.length) {
+    console.warn('[FED_ECB_REFERENCE_DIAG] fedDates='+fedDates.slice(-5).join(',')+
+      ' ecbDates='+ecbDates.slice(-5).join(',')+
+      ' ecbLatestQuotes='+Object.keys(latestEcbRates).sort().join(',')+
+      ' requiredQuotes='+REFERENCE_CURRENCIES.join(','));
     const e=new Error('fred_ecb_no_common_reference_date');e.statusCode=502;throw e;
   }
   const observationDate=commonComparisonDates[commonComparisonDates.length-1];
