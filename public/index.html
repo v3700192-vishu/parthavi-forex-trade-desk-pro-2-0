@@ -423,12 +423,12 @@ table .blank,.blank{color:#bdabb2!important}
 <section class="section" id="multitimeframe">
  <div class="sectionhead"><div><div class="eyebrow">TOP-DOWN ANALYSIS</div><h2>Multi-Timeframe Alignment</h2><p>Higher timeframe bias must confirm the lower timeframe setup.</p></div><span class="tag">4H → 5M</span></div>
  <div class="card"><div class="tablewrap"><table class="matrix"><thead><tr><th>ANALYSIS</th><th>4H · BIAS</th><th>1H · TREND</th><th>30M · SETUP</th><th>15M · CONFIRM</th><th>5M · ENTRY</th></tr></thead><tbody>
- <tr><td>Direction</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
- <tr><td>EMA trend</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
- <tr><td>Momentum</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
- <tr><td>Structure</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
- <tr><td>Source agreement</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
- </tbody></table></div><div class="notice" style="margin-top:12px"><b>Decision rule:</b> 4H sets the macro bias, 1H confirms direction, 30M defines the setup, 15M validates it and 5M controls entry timing. Any higher-timeframe conflict blocks the signal.</div></div>
+ <tr data-mtf-row="direction"><td>Direction</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
+ <tr data-mtf-row="ema"><td>EMA trend</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
+ <tr data-mtf-row="momentum"><td>Momentum</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
+ <tr data-mtf-row="structure"><td>Structure</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
+ <tr data-mtf-row="source"><td>Source agreement</td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td><td><span class="tfstate">—</span></td></tr>
+ </tbody></table></div><div class="notice" id="mtfDecision" style="margin-top:12px"><b>Decision rule:</b> 4H sets the macro bias, 1H confirms direction, 30M defines the setup, 15M validates it and 5M controls entry timing. Any higher-timeframe conflict blocks the signal. Single-source data cannot confirm a trade.</div></div>
 </section>
 
 <section class="section" id="fundamental">
@@ -854,20 +854,106 @@ table .blank,.blank{color:#bdabb2!important}
    if(status)status.textContent='FEED UNAVAILABLE';
   }
  }
+
+ function mtfSummary(candles){
+  if(!Array.isArray(candles)||candles.length<60)return null;
+  const close=candles.map(c=>c.close),last=close[close.length-1];
+  const e9=ema(close,9),e21=ema(close,21),e50=ema(close,50);
+  let direction='MIXED';
+  if(last>e9&&e9>e21&&e21>e50)direction='BULLISH';
+  else if(last<e9&&e9<e21&&e21<e50)direction='BEARISH';
+  let emaTrend='MIXED';
+  if(e9>e21)emaTrend='BULLISH';
+  else if(e9<e21)emaTrend='BEARISH';
+  const momentumValue=rsi(close,14);
+  const momentum=Number.isFinite(momentumValue)?(momentumValue>=55?'BULLISH':momentumValue<=45?'BEARISH':'NEUTRAL'):'—';
+  const highs=[],lows=[],start=Math.max(2,candles.length-80);
+  for(let i=start;i<candles.length-2;i++){
+   if(candles[i].high>candles[i-1].high&&candles[i].high>=candles[i+1].high)highs.push(candles[i].high);
+   if(candles[i].low<candles[i-1].low&&candles[i].low<=candles[i+1].low)lows.push(candles[i].low);
+  }
+  let structure='MIXED';
+  if(highs.length>=2&&lows.length>=2){
+   const hh=highs[highs.length-1]>highs[highs.length-2];
+   const hl=lows[lows.length-1]>lows[lows.length-2];
+   const lh=highs[highs.length-1]<highs[highs.length-2];
+   const ll=lows[lows.length-1]<lows[lows.length-2];
+   if(hh&&hl)structure='HH / HL';
+   else if(lh&&ll)structure='LH / LL';
+   else structure='MIXED';
+  }
+  return {direction,emaTrend,momentum,structure};
+ }
+ function paintMtfRow(rowName,values){
+  const row=document.querySelector('[data-mtf-row="'+rowName+'"]');
+  if(!row)return;
+  const cells=row.querySelectorAll('td');
+  values.forEach((value,index)=>{if(cells[index+1])cells[index+1].textContent=value;});
+ }
+ async function loadMultiTimeframe(pair){
+  if(!apiReady)return;
+  const timeframes=['4H','1H','30M','15M','5M'];
+  const results=await Promise.all(timeframes.map(async tf=>{
+   try{return await requestJson('/api/forex/candles?pair='+encodeURIComponent(pair)+'&timeframe='+tf,20000);}
+   catch(error){return {ok:false,error:String(error.message||'unavailable'),timeframe:tf};}
+  }));
+  const values={direction:[],ema:[],momentum:[],structure:[],source:[]};
+  const states=[];
+  results.forEach((result,index)=>{
+   if(!result.ok||!result.candles){
+    values.direction.push('NO DATA');
+    values.ema.push('—');values.momentum.push('—');values.structure.push('—');
+    values.source.push('WAIT');
+    states.push(null);
+    return;
+   }
+   const summary=mtfSummary(result.candles);
+   const freshness=result.meta&&result.meta.freshness||'UNKNOWN';
+   states.push({summary,freshness});
+   const prefix=freshness==='FRESH'?'':'STALE · ';
+   values.direction.push(summary?prefix+summary.direction:'INSUFFICIENT');
+   values.ema.push(summary?prefix+summary.emaTrend:'—');
+   values.momentum.push(summary?prefix+summary.momentum:'—');
+   values.structure.push(summary?prefix+summary.structure:'—');
+   values.source.push('BIQUOTE ONLY');
+  });
+  paintMtfRow('direction',values.direction);
+  paintMtfRow('ema',values.ema);
+  paintMtfRow('momentum',values.momentum);
+  paintMtfRow('structure',values.structure);
+  paintMtfRow('source',values.source);
+  const note=$('#mtfDecision');
+  if(note){
+   const h4=states[0],h1=states[1];
+   let decision='Higher-timeframe data is incomplete. WAIT until all five intervals return adequate closed candles.';
+   if(h4&&h1&&h4.summary&&h1.summary){
+    if(h4.freshness!=='FRESH'||h1.freshness!=='FRESH'){
+     decision='Historical timeframe values are displayed, but 4H or 1H data is stale. WAIT — no live directional confirmation.';
+    }else if(h4.summary.direction===h1.summary.direction&&h4.summary.direction!=='MIXED'){
+     decision='4H and 1H direction align '+h4.summary.direction+'. Continue checking 30M setup, 15M confirmation and 5M entry. WAIT remains because only one indicative provider is connected.';
+    }else{
+     decision='4H and 1H are not aligned. Top-down rule blocks the setup. WAIT — do not use 5M direction alone.';
+    }
+   }
+   note.textContent='';
+   const b=document.createElement('b');b.textContent='TOP-DOWN STATUS: ';note.appendChild(b);
+   note.appendChild(document.createTextNode(decision));
+  }
+ }
  async function loadWatchlist(){if(!apiReady)return;await Promise.all(PAIRS.map(pair=>loadQuote(pair,true)));}
  async function refreshSelected(){if(!apiReady)return;await Promise.all([loadQuote(pairNow(),false),loadCandles(pairNow(),tfNow())]);}
  async function init(){
   if(await getStatus()){
-   await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews()]);
+   await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews(),loadMultiTimeframe(pairNow())]);
   }
   setInterval(()=>{if(apiReady)loadQuote(pairNow(),false);},QUOTE_REFRESH_MS);
   setInterval(()=>{if(apiReady)loadCalendar();},900000);
   setInterval(()=>{if(apiReady)loadMarketNews();},300000);
   setInterval(()=>{if(apiReady)loadWatchlist();},WATCHLIST_REFRESH_MS);
-  setInterval(()=>{if(apiReady)loadCandles(pairNow(),tfNow());},CANDLE_REFRESH_MS);
+  setInterval(()=>{if(apiReady){loadCandles(pairNow(),tfNow());loadMultiTimeframe(pairNow());}},CANDLE_REFRESH_MS);
   setInterval(async()=>{if(!apiReady)await getStatus();},60000);
  }
- $('#pairSelect')?.addEventListener('change',()=>setTimeout(refreshSelected,0));
+ $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());},0));
  document.querySelectorAll('#tfbar button').forEach(button=>button.addEventListener('click',()=>setTimeout(refreshSelected,0)));
  document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(refreshSelected,0)));
  init();
