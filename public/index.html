@@ -583,6 +583,7 @@ table .blank,.blank{color:#bdabb2!important}
  const QUOTE_REFRESH_MS=10000, CANDLE_REFRESH_MS=180000, WATCHLIST_REFRESH_MS=60000;
  let apiReady=false, quoteStreamConnected=false, quoteStreamStarting=false, quoteStreamConnection=null;
  const quoteStates=new Map();
+ let currentCandles=null,currentCandlesPair=null;
 
  const $=selector=>document.querySelector(selector);
  const pairNow=()=>$('#pairSelect')?.value||'EUR/USD';
@@ -725,10 +726,10 @@ table .blank,.blank{color:#bdabb2!important}
   setNodeText('structureSwingHigh',lastHigh?fmt(lastHigh.price,pair):'—');
   setNodeText('structureSwingLow',lastLow?fmt(lastLow.price,pair):'—');
   let breakState='NO BREAK';
-  if(lastHigh&&close>lastHigh.price)breakState='BULLISH BOS';
+  if(structure==='HH / HL'&&lastLow&&close<lastLow.price)breakState='BEARISH CHoCH';
+  else if(structure==='LH / LL'&&lastHigh&&close>lastHigh.price)breakState='BULLISH CHoCH';
+  else if(lastHigh&&close>lastHigh.price)breakState='BULLISH BOS';
   else if(lastLow&&close<lastLow.price)breakState='BEARISH BOS';
-  else if(structure==='HH / HL'&&lastLow&&last.close<lastLow.price)breakState='BEARISH CHoCH';
-  else if(structure==='LH / LL'&&lastHigh&&last.close>lastHigh.price)breakState='BULLISH CHoCH';
   setNodeText('structureBreak',breakState);
 
   const resistance=highs.map(x=>x.price).filter(v=>v>close).sort((a,b)=>a-b);
@@ -838,7 +839,7 @@ table .blank,.blank{color:#bdabb2!important}
   const q=data.quote, timestamp=q.timestamp?Date.parse(q.timestamp):NaN;
   const age=hasNumber(q.ageSeconds)?Number(q.ageSeconds):(Number.isFinite(timestamp)?Math.max(0,Math.floor((Date.now()-timestamp)/1000)):Infinity);
   const freshness=q.marketState==='open'&&!q.stale&&age<=300&&Number.isFinite(timestamp)?'FRESH':'STALE';
-  const meta={...(data.meta||{}),freshness,safeToSignal:freshness==='FRESH',quoteAgeSeconds:Number.isFinite(age)?age:null,quoteTimestamp:Number.isFinite(timestamp)?timestamp:null};
+  const meta={...(data.meta||{}),freshness,safeToSignal:freshness==='FRESH',quoteAgeSeconds:Number.isFinite(age)?age:null,quoteTimestamp:Number.isFinite(timestamp)?timestamp:null,marketState:q.marketState};
   quoteStates.set(pair,{...meta,quote:q});
   data.meta=meta;
   updateWatchRow(pair,data);
@@ -851,6 +852,7 @@ table .blank,.blank{color:#bdabb2!important}
    $('#feedQuality').textContent=freshness;
    $('#feedQualityNote').textContent='Quote age '+(Number.isFinite(age)?age+'s':'—')+' · '+q.marketState;
    if(freshness!=='FRESH'&&!quoteStreamConnected)connector('STALE / CLOSED QUOTE','Last known quote is shown for context only. A stale or closed-market price cannot support a signal.',false);
+   if(currentCandles&&currentCandlesPair===pair)renderRiskPlanner(currentCandles,pair);
   }
   return data;
  }
@@ -901,7 +903,7 @@ table .blank,.blank{color:#bdabb2!important}
  }
  async function startQuoteStream(){
   if(!apiReady||quoteStreamConnected||quoteStreamStarting)return;
-  if(!window.signalR||!window.signalR.HubConnectionBuilder)return;
+  if(!window.signalR||!window.signalR.HubConnectionBuilder){setTimeout(()=>startQuoteStream(),30000);return;}
   quoteStreamStarting=true;
   let connection=null;
   try{
@@ -940,16 +942,16 @@ table .blank,.blank{color:#bdabb2!important}
    const state=quoteStates.get(pair);
    if(!state||!state.quoteTimestamp)continue;
    const age=Math.max(0,Math.floor((Date.now()-state.quoteTimestamp)/1000));
-   const fresh=state.marketState==='open'&&age<=300;
+   const fresh=state.quote&&state.quote.marketState==='open'&&age<=300;
    state.quoteAgeSeconds=age;
    state.freshness=fresh?'FRESH':'STALE';
    state.safeToSignal=fresh;
    const row=document.querySelector('[data-pair-row="'+pair+'"]');
-   if(row){const cells=row.querySelectorAll('td');if(cells[6])cells[6].textContent=state.freshness+(state.marketState==='closed'?' · CLOSED':'');}
+   if(row){const cells=row.querySelectorAll('td');if(cells[6])cells[6].textContent=state.freshness+(state.quote&&state.quote.marketState==='closed'?' · CLOSED':'');}
    if(pair===pairNow()){
     $('#feedQuality').textContent=state.freshness;
     $('#feedQualityNote').textContent='Quote age '+age+'s · '+state.marketState;
-    if(!fresh&&state.marketState!=='open')connector('MARKET CLOSED / LAST PRICE','Last known quote is retained for reference. No live forecast is permitted while the market is closed.',false);
+    if(!fresh&&(!state.quote||state.quote.marketState!=='open'))connector('MARKET CLOSED / LAST PRICE','Last known quote is retained for reference. No live forecast is permitted while the market is closed.',false);
    }
   }
  }
@@ -959,6 +961,7 @@ table .blank,.blank{color:#bdabb2!important}
    const data=await requestJson(url,20000);
    if(pair!==pairNow()||timeframe!==tfNow())return data;
    const candles=data.candles,last=candles[candles.length-1];
+   currentCandles=candles;currentCandlesPair=pair;
    renderChart(candles,pair);renderIndicators(candles,pair);renderMarketStructure(candles,pair);renderRiskPlanner(candles,pair);
    const quote=quoteStates.get(pair);
    if(data.meta.freshness==='FRESH'&&quote?.freshness==='FRESH'){
@@ -1069,11 +1072,8 @@ table .blank,.blank{color:#bdabb2!important}
   else if(e9<e21)emaTrend='BEARISH';
   const momentumValue=rsi(close,14);
   const momentum=Number.isFinite(momentumValue)?(momentumValue>=55?'BULLISH':momentumValue<=45?'BEARISH':'NEUTRAL'):'—';
-  const highs=[],lows=[],start=Math.max(2,candles.length-80);
-  for(let i=start;i<candles.length-2;i++){
-   if(candles[i].high>candles[i-1].high&&candles[i].high>=candles[i+1].high)highs.push(candles[i].high);
-   if(candles[i].low<candles[i-1].low&&candles[i].low<=candles[i+1].low)lows.push(candles[i].low);
-  }
+  const recent=candles.slice(-82),swings=confirmedSwings(recent,2);
+  const highs=swings.highs.map(x=>x.price),lows=swings.lows.map(x=>x.price);
   let structure='MIXED';
   if(highs.length>=2&&lows.length>=2){
    const hh=highs[highs.length-1]>highs[highs.length-2];
@@ -1144,7 +1144,7 @@ table .blank,.blank{color:#bdabb2!important}
    const b=document.createElement('b');b.textContent='TOP-DOWN STATUS: ';note.appendChild(b);
    note.appendChild(document.createTextNode(decision));
    const modelCells=document.querySelectorAll('.forecastcell b');
-   if(modelCells.length>1)modelCells[1].textContent=allFresh&&new Set(sides).size===1?'5/5 TF · 1 SOURCE':'TF MIXED / WAIT';
+   if(modelCells.length>1)modelCells[1].textContent=allFresh&&['BULLISH','BEARISH'].includes(sides[0])&&new Set(sides).size===1?'5/5 TF · 1 SOURCE':'TF MIXED / WAIT';
   }
  }
  async function loadWatchlist(){if(!apiReady)return;await Promise.all(PAIRS.map(pair=>loadQuote(pair,true)));}
