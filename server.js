@@ -137,6 +137,76 @@ async function getQuote(pair) {
   quoteCache.set(cacheKey,{at:Date.now(),value:result});
   return result;
 }
+
+async function getNews() {
+  const url=new URL('/api/news/market',PROVIDER_BASE);
+  url.searchParams.set('language','en');
+  url.searchParams.set('country','US');
+  url.searchParams.set('maxResults','10');
+  const payload=await providerJson(url);
+  if(!Array.isArray(payload)) {
+    const e=new Error('news_feed_invalid_response');e.statusCode=422;throw e;
+  }
+  const items=payload.map(item=>{
+    let articleUrl=null;
+    try {
+      const u=new URL(String(item.url||''));
+      if(u.protocol==='https:') articleUrl=u.toString();
+    } catch {}
+    const published=Date.parse(String(item.publishedDate||''));
+    if(!item.title || !articleUrl || !Number.isFinite(published)) return null;
+    return {
+      title:String(item.title).slice(0,260),
+      description:String(item.description||'').slice(0,700),
+      url:articleUrl,
+      publisher:String(item.publisher||'Unknown').slice(0,100),
+      publishedDate:new Date(published).toISOString(),
+      country:String(item.country||'').slice(0,8),
+      category:item.category?String(item.category).slice(0,80):null
+    };
+  }).filter(Boolean).sort((a,b)=>Date.parse(b.publishedDate)-Date.parse(a.publishedDate));
+  return {
+    ok:true,provider:PROVIDER,items,
+    fetchedAt:new Date().toISOString(),
+    disclaimer:'Aggregated third-party news; headlines are context, not a directional trading signal.'
+  };
+}
+async function getCalendar() {
+  const url=new URL('/api/calendar/upcoming',PROVIDER_BASE);
+  url.searchParams.set('importance','medium');
+  url.searchParams.set('limit','100');
+  const payload=await providerJson(url);
+  if(!Array.isArray(payload)) {
+    const e=new Error('calendar_feed_invalid_response');e.statusCode=422;throw e;
+  }
+  const items=payload.map(item=>{
+    const t=Date.parse(String(item.time||''));
+    if(!item.name || !Number.isFinite(t)) return null;
+    return {
+      id:String(item.id||'').slice(0,100),
+      time:new Date(t).toISOString(),
+      timeMode:String(item.timeMode||'tentative'),
+      currency:String(item.currency||item.countryCode||'').slice(0,12),
+      countryCode:String(item.countryCode||'').slice(0,8),
+      name:String(item.name).slice(0,200),
+      importance:String(item.importance||'unknown').toLowerCase(),
+      type:String(item.type||'event').slice(0,32),
+      actual:item.actual===null||item.actual===undefined?null:(Number.isFinite(Number(item.actual))?Number(item.actual):null),
+      forecast:item.forecast===null||item.forecast===undefined?null:(Number.isFinite(Number(item.forecast))?Number(item.forecast):null),
+      previous:item.previous===null||item.previous===undefined?null:(Number.isFinite(Number(item.previous))?Number(item.previous):null),
+      revisedPrevious:item.revisedPrevious===null||item.revisedPrevious===undefined?null:(Number.isFinite(Number(item.revisedPrevious))?Number(item.revisedPrevious):null),
+      unit:String(item.unit||'').slice(0,32),
+      multiplier:String(item.multiplier||'').slice(0,32),
+      source:String(item.source||'').slice(0,32)
+    };
+  }).filter(Boolean).sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
+  return {
+    ok:true,provider:PROVIDER,items,
+    fetchedAt:new Date().toISOString(),
+    disclaimer:'Economic calendar coverage depends on upstream country/source coverage. Null readings mean unpublished, not zero.'
+  };
+}
+
 async function getCandles(pair,timeframe) {
   const spec=INTERVALS.get(timeframe), cacheKey=pair+'|'+timeframe, cached=candleCache.get(cacheKey);
   if(cached && Date.now()-cached.at<CANDLE_CACHE_MS) return {...cached.value,cache:'HIT'};
@@ -202,6 +272,14 @@ const server=http.createServer(async(req,res)=>{
     });
   }
   const pair=normalisePair(url.searchParams.get('pair'));
+  if(url.pathname==='/api/forex/news') {
+    try { return respond(res,200,await getNews()); }
+    catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,provider:PROVIDER,error:safeError(error)}); }
+  }
+  if(url.pathname==='/api/forex/calendar') {
+    try { return respond(res,200,await getCalendar()); }
+    catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,provider:PROVIDER,error:safeError(error)}); }
+  }
   if(url.pathname==='/api/forex/quote') {
     if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
     try { return respond(res,200,await getQuote(pair)); }
