@@ -960,11 +960,14 @@ body{color:#fff!important}
   if(noteNode&&note)noteNode.textContent=note;
  }
  function currentPairEventRisk(pair){
-  if(!Array.isArray(latestCalendarItems)||!latestCalendarFetchedAt||Date.now()-latestCalendarFetchedAt>30*60*1000)
-   return {state:'UNKNOWN',detail:'Calendar missing or older than 30 minutes'};
+  if(!Array.isArray(latestCalendarItems)||latestCalendarItems.length===0||!latestCalendarFetchedAt||Date.now()-latestCalendarFetchedAt>30*60*1000)
+   return {state:'UNKNOWN',detail:'Calendar missing, empty or older than 30 minutes'};
   const currencies=pair.split('/'),now=Date.now(),lookback=15*60*1000,lookahead=60*60*1000;
   const relevant=latestCalendarItems.filter(event=>{
-   const currency=String(event.currency||event.countryCode||'').toUpperCase();
+   const rawCurrency=String(event.currency||'').toUpperCase();
+   const country=String(event.countryCode||'').toUpperCase();
+   const countryCurrency={US:'USD',GB:'GBP',JP:'JPY',CH:'CHF',AU:'AUD',NZ:'NZD',CA:'CAD',EA:'EUR',EU:'EUR'};
+   const currency=rawCurrency.length===3?rawCurrency:(countryCurrency[country]||rawCurrency||country);
    const time=Date.parse(event.time||'');
    return currencies.includes(currency)&&String(event.importance||'').toLowerCase()==='high'&&
     Number.isFinite(time)&&time>=now-lookback&&time<=now+lookahead;
@@ -1072,6 +1075,9 @@ body{color:#fff!important}
    if(eventRisk.state!=='CLEAR')blockers.push('event-risk clearance not verified');
    blockers.push('out-of-sample probability calibration ≥ 68% not yet proven');
    decision.textContent='FINAL STATUS: WAIT — '+blockers.join('; ')+'. Biquote-derived price action, technicals and timeframe checks are correlated evidence from one provider, not independent data sources.';
+   const forecastDesc=$('.forecastdesc');
+   if(forecastDesc)forecastDesc.textContent='No trade signal. '+blockers.slice(0,3).join('; ')+'.';
+
   }
  }
  function renderRiskPlanner(candles,pair){
