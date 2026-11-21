@@ -263,7 +263,7 @@ const server=http.createServer(async(req,res)=>{
     return respond(res,200,{
       ok:true,service:'PARTHAVI FOREX DATA API',
       provider:PROVIDER,providerConfigured:true,authenticationRequired:false,
-      feedMode:'REST quote snapshots + closed OHLC candles',
+      feedMode:'SignalR WebSocket quote stream in browser + REST closed OHLC candles; REST quote fallback',
       freshnessRule:'provider quoteAgeSeconds + candle timestamp checked; stale or closed market blocks signals',
       usageRights:'Provider terms permit use and display in web dashboards; do not redistribute raw feed.',
       disclaimer:'Indicative feed with no uptime SLA. Not a broker execution feed or guaranteed tradable price.',
