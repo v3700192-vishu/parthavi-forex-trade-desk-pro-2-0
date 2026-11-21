@@ -5,8 +5,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#fffdf5",
-  "theme_color": "#fff4c7",
+  "background_color": "#100609",
+  "theme_color": "#100609",
   "icons": [
     {
       "src": "./assets/parthavi-forex-logo.webp",
