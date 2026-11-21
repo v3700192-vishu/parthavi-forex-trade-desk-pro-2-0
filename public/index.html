@@ -659,16 +659,16 @@ body{color:#fff!important}
 <section class="section" id="volatility">
  <div class="sectionhead"><div><div class="eyebrow">MARKET CONDITIONS</div><h2>Volatility & Risk Conditions</h2><p>Range, realised volatility, ATR, spread quality and event-risk filters.</p></div></div>
  <div class="grid indicators">
-  <div class="card indicator"><small>ATR · 14</small><b>—</b><em>Current timeframe range</em></div>
-  <div class="card indicator"><small>REALIZED VOLATILITY</small><b>—</b><em>20 / 50 period</em></div>
-  <div class="card indicator"><small>AVERAGE DAILY RANGE</small><b>—</b><em>ADR utilisation</em></div>
-  <div class="card indicator"><small>SPREAD QUALITY</small><b>—</b><em>Current vs normal spread</em></div>
-  <div class="card indicator"><small>MARKET REGIME</small><b>—</b><em>Trend / range / expansion</em></div>
-  <div class="card indicator"><small>SESSION VOLATILITY</small><b>—</b><em>Tokyo / London / New York</em></div>
-  <div class="card indicator"><small>EVENT RISK</small><b>—</b><em>High-impact release filter</em></div>
-  <div class="card indicator"><small>LIQUIDITY CONDITION</small><b>—</b><em>Thin / normal / active</em></div>
+  <div class="card indicator"><small>ATR · 14</small><b data-volatility="atr">—</b><em data-volatility-note="atr">ATR 14 · closed candle range</em></div>
+  <div class="card indicator"><small>REALIZED VOLATILITY</small><b data-volatility="realized">—</b><em data-volatility-note="realized">20 / 50 bar standard deviation</em></div>
+  <div class="card indicator"><small>AVERAGE DAILY RANGE</small><b data-volatility="adr">N/A</b><em data-volatility-note="adr">Daily OHLC not supplied</em></div>
+  <div class="card indicator"><small>SPREAD QUALITY</small><b data-volatility="spread">WAIT</b><em data-volatility-note="spread">No historical spread benchmark</em></div>
+  <div class="card indicator"><small>MARKET REGIME</small><b data-volatility="regime">—</b><em data-volatility-note="regime">ADX-based classification</em></div>
+  <div class="card indicator"><small>SESSION VOLATILITY</small><b data-volatility="session">N/A</b><em data-volatility-note="session">Session baseline not measured</em></div>
+  <div class="card indicator"><small>EVENT RISK</small><b data-volatility="event">WAIT</b><em data-volatility-note="event">Calendar verification required</em></div>
+  <div class="card indicator"><small>LIQUIDITY CONDITION</small><b data-volatility="liquidity">N/A</b><em data-volatility-note="liquidity">No order-book depth feed</em></div>
  </div>
- <div class="notice" style="margin-top:10px"><b>Risk filters:</b> no forecast when spread is abnormal, liquidity is poor, event risk is unresolved or candle data is stale. Volatility adjusts stop distance and target expectations; it does not create a direction by itself.</div>
+ <div class="notice" id="volatilityRiskNote" style="margin-top:10px"><b>Risk filters:</b> realised volatility is calculated from closed candles. Spread has no verified normal-market benchmark, order-book liquidity is not supplied and unresolved checks keep the system in WAIT.</div>
 </section>
 
 <section class="section" id="correlation">
@@ -688,13 +688,13 @@ body{color:#fff!important}
  <div class="sectionhead"><div><div class="eyebrow">EVIDENCE CHECK</div><h2>Directional Source Agreement</h2><p>Each source contributes a verifiable vote; mixed evidence blocks the forecast.</p></div></div>
  <div class="card">
   <div class="grid sourcegrid">
-   <div class="source"><b>PRICE ACTION</b><span>WAITING FOR DATA</span></div>
-   <div class="source"><b>TECHNICALS</b><span>WAITING FOR DATA</span></div>
-   <div class="source"><b>MULTI-TIMEFRAME</b><span>WAITING FOR DATA</span></div>
-   <div class="source"><b>FUNDAMENTALS</b><span>WAITING FOR DATA</span></div>
-   <div class="source"><b>VOLATILITY / RISK</b><span>WAITING FOR DATA</span></div>
+   <div class="source"><b>PRICE ACTION</b><span id="sourcePriceAction">WAITING FOR DATA</span></div>
+   <div class="source"><b>TECHNICALS</b><span id="sourceTechnicals">WAITING FOR DATA</span></div>
+   <div class="source"><b>MULTI-TIMEFRAME</b><span id="sourceMultiTimeframe">WAITING FOR DATA</span></div>
+   <div class="source"><b>FUNDAMENTALS</b><span id="sourceFundamentals">NO VERIFIED LIVE VOTE</span></div>
+   <div class="source"><b>VOLATILITY / RISK</b><span id="sourceRisk">WAITING FOR DATA</span></div>
   </div>
-  <div class="notice" style="margin-top:12px"><b>Final decision rule:</b> all required verified sources aligned bullish = bullish candidate; all aligned bearish = bearish candidate; any mixture or missing source = WAIT. A candidate still needs calibrated probability ≥ 68%, acceptable spread and risk filters.</div>
+  <div class="notice" id="sourceAgreementDecision" style="margin-top:12px"><b>FINAL STATUS: WAIT.</b> A trade also requires independent live-price corroboration, verified spread and liquidity evidence, event-risk clearance and calibrated out-of-sample probability ≥ 68%.</div>
  </div>
 </section>
 
@@ -764,7 +764,8 @@ body{color:#fff!important}
  const QUOTE_REFRESH_MS=10000, CANDLE_REFRESH_MS=180000, WATCHLIST_REFRESH_MS=60000;
  let apiReady=false, quoteStreamConnected=false, quoteStreamStarting=false, quoteStreamConnection=null;
  const quoteStates=new Map();
- let currentCandles=null,currentCandlesPair=null;
+ let currentCandles=null,currentCandlesPair=null,currentCandlesMeta=null;
+ let latestCalendarItems=null,latestCalendarFetchedAt=null,multiTimeframeState=null;
 
  const $=selector=>document.querySelector(selector);
  const pairNow=()=>$('#pairSelect')?.value||'EUR/USD';
@@ -952,6 +953,127 @@ body{color:#fff!important}
   else if(lastLow&&last.low<lastLow.price&&close>lastLow.price)sweep='SELL-SIDE SWEEP';
   setScanValue('sweep',sweep);
  }
+ function setVolatilityMetric(name,value,note){
+  const valueNode=document.querySelector('[data-volatility="'+name+'"]');
+  const noteNode=document.querySelector('[data-volatility-note="'+name+'"]');
+  if(valueNode)valueNode.textContent=value;
+  if(noteNode&&note)noteNode.textContent=note;
+ }
+ function currentPairEventRisk(pair){
+  if(!Array.isArray(latestCalendarItems)||!latestCalendarFetchedAt||Date.now()-latestCalendarFetchedAt>30*60*1000)
+   return {state:'UNKNOWN',detail:'Calendar missing or older than 30 minutes'};
+  const currencies=pair.split('/'),now=Date.now(),lookback=15*60*1000,lookahead=60*60*1000;
+  const relevant=latestCalendarItems.filter(event=>{
+   const currency=String(event.currency||event.countryCode||'').toUpperCase();
+   const time=Date.parse(event.time||'');
+   return currencies.includes(currency)&&String(event.importance||'').toLowerCase()==='high'&&
+    Number.isFinite(time)&&time>=now-lookback&&time<=now+lookahead;
+  }).sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
+  if(relevant.length){
+   const event=relevant[0],mins=Math.round((Date.parse(event.time)-now)/60000);
+   return {state:'BLOCKED',detail:String(event.currency||event.countryCode)+' · '+String(event.name||'High impact event')+' · '+(mins<0?Math.abs(mins)+'m ago':mins+'m ahead')};
+  }
+  return {state:'CLEAR',detail:'No high-impact pair-currency event in −15m / +60m window'};
+ }
+ function renderVolatilityAndRisk(candles,pair,meta=currentCandlesMeta){
+  if(!Array.isArray(candles)||candles.length<22){
+   ['atr','realized','regime'].forEach(name=>setVolatilityMetric(name,'WAIT','Insufficient closed candles'));
+   setVolatilityMetric('spread','WAIT','Fresh quote required; no historical benchmark');
+   setVolatilityMetric('event','WAIT','Calendar verification required');
+   return;
+  }
+  const state=quoteStates.get(pair),quote=state&&state.quote;
+  const quoteFresh=Boolean(state&&state.freshness==='FRESH'&&Number(state.quoteAgeSeconds)<=300);
+  const candlesFresh=Boolean(meta&&meta.freshness==='FRESH');
+  const av=atr(candles,14),avx=adx(candles,14);
+  setVolatilityMetric('atr',Number.isFinite(av)?fmt(av,pair):'—','ATR 14 · closed '+tfNow()+' candles');
+  const returns=candles.slice(1).map((c,i)=>Math.log(c.close/candles[i].close)).filter(Number.isFinite);
+  const stdev=values=>{
+   if(values.length<2)return NaN;
+   const mean=values.reduce((a,b)=>a+b,0)/values.length;
+   return Math.sqrt(values.reduce((sum,v)=>sum+(v-mean)**2,0)/(values.length-1))*100;
+  };
+  const rv20=stdev(returns.slice(-20)),rv50=stdev(returns.slice(-50));
+  setVolatilityMetric('realized',Number.isFinite(rv20)&&Number.isFinite(rv50)?rv20.toFixed(3)+'% / '+rv50.toFixed(3)+'%':'—','20 / 50 bar log-return stdev · per bar · not annualised');
+  setVolatilityMetric('adr','N/A','Daily OHLC is not supplied by supported API intervals');
+  const pip=pair.includes('JPY')?.01:.0001;
+  const spread=quote&&Number.isFinite(Number(quote.spread))?Number(quote.spread):NaN;
+  setVolatilityMetric('spread',quoteFresh&&Number.isFinite(spread)?(spread/pip).toFixed(2)+' pips':'WAIT',
+   quoteFresh?'Biquote spread · no normal-spread history to benchmark':'Quote stale / closed · spread quality not approved');
+  let regime='INSUFFICIENT';
+  if(Number.isFinite(avx))regime=avx>=25?'TRENDING':avx<20?'RANGE':'TRANSITION';
+  setVolatilityMetric('regime',regime,Number.isFinite(avx)?'ADX 14 = '+avx.toFixed(1)+' · strength, not direction':'Need more closed bars');
+  setVolatilityMetric('session','N/A','No session-separated volatility baseline');
+  const eventRisk=currentPairEventRisk(pair);
+  setVolatilityMetric('event',eventRisk.state==='CLEAR'?'CLEAR':eventRisk.state==='BLOCKED'?'BLOCK':'WAIT',eventRisk.detail);
+  setVolatilityMetric('liquidity','N/A','No Level-2 order-book / executable depth data');
+  const note=$('#volatilityRiskNote');
+  if(note){
+   const blockers=[];
+   if(!candlesFresh)blockers.push('candles stale');
+   if(!quoteFresh)blockers.push('quote stale / market closed');
+   if(eventRisk.state!=='CLEAR')blockers.push(eventRisk.state==='BLOCKED'?'high-impact event window':'calendar unresolved');
+   blockers.push('spread benchmark absent','order-book liquidity absent');
+   note.textContent='RISK CHECK: WAIT — '+blockers.join('; ')+'. Realised volatility is per-bar return standard deviation, not annualised. ADR and session baselines are unavailable and are not inferred.';
+  }
+ }
+ function directionalPriceAction(candles){
+  if(!Array.isArray(candles)||candles.length<40)return 'INSUFFICIENT';
+  const swings=confirmedSwings(candles,2),highs=swings.highs,lows=swings.lows;
+  const last=candles[candles.length-1],prior=candles.slice(-21,-1);
+  if(highs.length>=2&&lows.length>=2){
+   const hh=highs.at(-1).price>highs.at(-2).price,hl=lows.at(-1).price>lows.at(-2).price;
+   const lh=highs.at(-1).price<highs.at(-2).price,ll=lows.at(-1).price<lows.at(-2).price;
+   if(hh&&hl)return 'BULLISH';
+   if(lh&&ll)return 'BEARISH';
+  }
+  const rangeHigh=Math.max(...prior.map(c=>c.high)),rangeLow=Math.min(...prior.map(c=>c.low));
+  if(last.close>rangeHigh)return 'BULLISH';
+  if(last.close<rangeLow)return 'BEARISH';
+  return 'MIXED';
+ }
+ function directionalTechnical(candles){
+  if(!Array.isArray(candles)||candles.length<50)return 'INSUFFICIENT';
+  const close=candles.map(c=>c.close),last=close.at(-1);
+  const e9=ema(close,9),e21=ema(close,21),e50=ema(close,50),rv=rsi(close,14),m=macd(close);
+  if(!m||![e9,e21,e50,rv,m.line,m.signal].every(Number.isFinite))return 'INSUFFICIENT';
+  if(last>e9&&e9>e21&&e21>e50&&rv>=50&&m.line>m.signal)return 'BULLISH';
+  if(last<e9&&e9<e21&&e21<e50&&rv<=50&&m.line<m.signal)return 'BEARISH';
+  return 'MIXED';
+ }
+ function renderSourceAgreement(candles,pair,meta=currentCandlesMeta){
+  const quote=quoteStates.get(pair),quoteFresh=Boolean(quote&&quote.freshness==='FRESH'&&Number(quote.quoteAgeSeconds)<=300);
+  const candleFresh=Boolean(meta&&meta.freshness==='FRESH');
+  const price=directionalPriceAction(candles),technical=directionalTechnical(candles);
+  const mtf=multiTimeframeState&&multiTimeframeState.pair===pair?multiTimeframeState:null;
+  const paText=!candleFresh?'STALE · WAIT':price==='INSUFFICIENT'?'INSUFFICIENT HISTORY':price+' · BIQUOTE BARS';
+  const techText=!candleFresh?'STALE · WAIT':technical==='INSUFFICIENT'?'INSUFFICIENT HISTORY':technical+' · SAME FEED';
+  const mtfText=!mtf?'WAIT · NO TIMEFRAME SET':!mtf.allFresh?'STALE · WAIT':mtf.sides.every(v=>v===mtf.sides[0])&&['BULLISH','BEARISH'].includes(mtf.sides[0])?mtf.sides[0]+' · 5/5':'MIXED · WAIT';
+  const eventRisk=currentPairEventRisk(pair);
+  let riskText='WAIT · DATA NOT FRESH';
+  if(quoteFresh&&candleFresh&&eventRisk.state==='CLEAR')riskText='DATA FRESH · SPREAD / LIQUIDITY UNVERIFIED';
+  else if(eventRisk.state==='BLOCKED')riskText='BLOCK · HIGH-IMPACT EVENT';
+  else if(quoteFresh&&candleFresh)riskText='WAIT · EVENT CHECK UNKNOWN';
+  setNodeText('sourcePriceAction',paText);
+  setNodeText('sourceTechnicals',techText);
+  setNodeText('sourceMultiTimeframe',mtfText);
+  setNodeText('sourceFundamentals','REFERENCE ONLY · NO LIVE VOTE');
+  setNodeText('sourceRisk',riskText);
+  const decision=$('#sourceAgreementDecision');
+  if(decision){
+   const blockers=[];
+   if(!quoteFresh)blockers.push('live quote stale / market closed');
+   if(!candleFresh)blockers.push('closed candles stale');
+   if(!mtf||!mtf.allFresh||!mtf.sides.every(v=>v===mtf.sides[0])||!['BULLISH','BEARISH'].includes(mtf.sides[0]))blockers.push('5-timeframe confirmation missing');
+   if(!['BULLISH','BEARISH'].includes(price)||technical!==price)blockers.push('price-action / technical agreement missing');
+   blockers.push('independent executable live-price source absent');
+   blockers.push('verified fundamental directional vote absent');
+   blockers.push('normal-spread benchmark and order-book liquidity absent');
+   if(eventRisk.state!=='CLEAR')blockers.push('event-risk clearance not verified');
+   blockers.push('out-of-sample probability calibration ≥ 68% not yet proven');
+   decision.textContent='FINAL STATUS: WAIT — '+blockers.join('; ')+'. Biquote-derived price action, technicals and timeframe checks are correlated evidence from one provider, not independent data sources.';
+  }
+ }
  function renderRiskPlanner(candles,pair){
   const state=quoteStates.get(pair),quote=state&&state.quote,age=state&&state.quoteAgeSeconds;
   const fresh=state&&state.freshness==='FRESH'&&quote&&Number.isFinite(Number(quote.mid))&&Number(age)<=300;
@@ -1033,7 +1155,7 @@ body{color:#fff!important}
    $('#feedQuality').textContent=freshness;
    $('#feedQualityNote').textContent='Quote age '+(Number.isFinite(age)?age+'s':'—')+' · '+q.marketState;
    if(freshness!=='FRESH'&&!quoteStreamConnected)connector('STALE / CLOSED QUOTE','Last known quote is shown for context only. A stale or closed-market price cannot support a signal.',false);
-   if(currentCandles&&currentCandlesPair===pair)renderRiskPlanner(currentCandles,pair);
+   if(currentCandles&&currentCandlesPair===pair){renderRiskPlanner(currentCandles,pair);renderVolatilityAndRisk(currentCandles,pair,currentCandlesMeta);renderSourceAgreement(currentCandles,pair,currentCandlesMeta);}
   }
   return data;
  }
@@ -1144,8 +1266,9 @@ body{color:#fff!important}
    if(pair!==pairNow()||timeframe!==tfNow())return data;
    const candles=data.candles,last=candles[candles.length-1];
    currentCandles=candles;currentCandlesPair=pair;
+   currentCandlesMeta=data.meta||null;
    const structureTag=$('#structureDataState');if(structureTag)structureTag.textContent=data.meta.freshness==='FRESH'?'FRESH CLOSED BARS':'HISTORICAL · STALE';
-   renderChart(candles,pair);renderIndicators(candles,pair);renderMarketStructure(candles,pair);renderRiskPlanner(candles,pair);
+   renderChart(candles,pair);renderIndicators(candles,pair);renderMarketStructure(candles,pair);renderRiskPlanner(candles,pair);renderVolatilityAndRisk(candles,pair,data.meta);renderSourceAgreement(candles,pair,data.meta);
    const quote=quoteStates.get(pair);
    if(data.meta.freshness==='FRESH'&&quote?.freshness==='FRESH'){
     connector('FRESH DATA · SIGNAL BLOCKED','Fresh quote and closed OHLC candles loaded from Biquote. This is one indicative source only; forecast remains WAIT pending independent-source agreement and out-of-sample validation.',true);
@@ -1262,7 +1385,10 @@ body{color:#fff!important}
   if(!body)return;
   try{
    const data=await requestJson('/api/forex/calendar',25000);
+   latestCalendarItems=Array.isArray(data.items)?data.items:null;
+   latestCalendarFetchedAt=Date.now();
    body.innerHTML='';
+   if(currentCandles&&currentCandlesPair===pairNow()){renderVolatilityAndRisk(currentCandles,pairNow(),currentCandlesMeta);renderSourceAgreement(currentCandles,pairNow(),currentCandlesMeta);}
    if(!data.items.length){
     const tr=document.createElement('tr'),td=document.createElement('td');
     td.colSpan=7;td.className='blank';td.style.textAlign='center';td.style.padding='24px';
@@ -1284,6 +1410,8 @@ body{color:#fff!important}
    }
    if(status){status.textContent='BIQUOTE · '+data.items.length+' EVENTS';status.className='tag muted';}
   }catch(error){
+   latestCalendarItems=null;latestCalendarFetchedAt=null;
+   if(currentCandles&&currentCandlesPair===pairNow()){renderVolatilityAndRisk(currentCandles,pairNow(),currentCandlesMeta);renderSourceAgreement(currentCandles,pairNow(),currentCandlesMeta);}
    body.innerHTML='';
    const tr=document.createElement('tr'),td=document.createElement('td');
    td.colSpan=7;td.className='blank';td.style.textAlign='center';td.style.padding='24px';
@@ -1383,6 +1511,10 @@ body{color:#fff!important}
   paintMtfRow('momentum',values.momentum);
   paintMtfRow('structure',values.structure);
   paintMtfRow('source',values.source);
+  const allUsableNow=states.length===5&&states.every(s=>s&&s.summary);
+  const allFreshNow=allUsableNow&&states.every(s=>s.freshness==='FRESH');
+  const sidesNow=allUsableNow?states.map(s=>s.summary.direction):[];
+  multiTimeframeState={pair,states,allUsable:allUsableNow,allFresh:allFreshNow,sides:sidesNow};
   const note=$('#mtfDecision');
   if(note){
    const allUsable=states.length===5&&states.every(s=>s&&s.summary);
@@ -1409,6 +1541,7 @@ body{color:#fff!important}
    const modelCells=document.querySelectorAll('.forecastcell b');
    if(modelCells.length>1)modelCells[1].textContent=allFresh&&quoteFresh&&['BULLISH','BEARISH'].includes(sides[0])&&new Set(sides).size===1?'5/5 TF · 1 SOURCE':'TF / QUOTE WAIT';
   }
+  if(currentCandles&&currentCandlesPair===pair)renderSourceAgreement(currentCandles,pair,currentCandlesMeta);
  }
 
  const CURRENCY_CODES=['USD','EUR','GBP','JPY','CHF','AUD','NZD','CAD'];
