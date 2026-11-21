@@ -298,6 +298,7 @@ async function getFederalReserveReferenceRates() {
     const e=new Error('ecb_overlap_http_'+ecbResponse.status);e.statusCode=502;throw e;
   }
   const ecbRows=await ecbResponse.json();
+  console.log('[FED_ECB_REFERENCE_FETCH] status='+ecbResponse.status+' url='+ecbUrl.toString()+' rows='+(Array.isArray(ecbRows)?ecbRows.length:'not_array'));
   if(!Array.isArray(ecbRows)) {
     const e=new Error('ecb_overlap_invalid_response');e.statusCode=502;throw e;
   }
