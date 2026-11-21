@@ -627,6 +627,37 @@ table .blank,.blank{color:#bdabb2!important}
   for(let i=1;i<candles.length;i++){const c=candles[i],p=candles[i-1];tr.push(Math.max(c.high-c.low,Math.abs(c.high-p.close),Math.abs(c.low-p.close)));}
   return tr.slice(-period).reduce((a,b)=>a+b,0)/period;
  }
+ function adx(candles,period=14){
+  if(candles.length<period*2+1)return NaN;
+  const tr=[],plus=[],minus=[];
+  for(let i=1;i<candles.length;i++){
+   const c=candles[i],p=candles[i-1];
+   const up=c.high-p.high,down=p.low-c.low;
+   tr.push(Math.max(c.high-c.low,Math.abs(c.high-p.close),Math.abs(c.low-p.close)));
+   plus.push(up>down&&up>0?up:0);
+   minus.push(down>up&&down>0?down:0);
+  }
+  let trSm=tr.slice(0,period).reduce((a,b)=>a+b,0);
+  let plusSm=plus.slice(0,period).reduce((a,b)=>a+b,0);
+  let minusSm=minus.slice(0,period).reduce((a,b)=>a+b,0);
+  const dx=[];
+  const pushDx=()=>{
+   if(trSm<=0){dx.push(NaN);return;}
+   const pdi=100*plusSm/trSm,mdi=100*minusSm/trSm,sum=pdi+mdi;
+   dx.push(sum>0?100*Math.abs(pdi-mdi)/sum:0);
+  };
+  pushDx();
+  for(let i=period;i<tr.length;i++){
+   trSm=trSm-trSm/period+tr[i];
+   plusSm=plusSm-plusSm/period+plus[i];
+   minusSm=minusSm-minusSm/period+minus[i];
+   pushDx();
+  }
+  if(dx.length<period || dx.slice(0,period).some(v=>!Number.isFinite(v)))return NaN;
+  let value=dx.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  for(let i=period;i<dx.length;i++)value=(value*(period-1)+dx[i])/period;
+  return value;
+ }
  function bollinger(values,period=20){
   if(values.length<period)return null;
   const w=values.slice(-period),mean=w.reduce((a,b)=>a+b,0)/period;
@@ -653,7 +684,8 @@ table .blank,.blank{color:#bdabb2!important}
   set(2,Number.isFinite(rv)?rv.toFixed(1):'—',Number.isFinite(rv)?(rv>=70?'Overbought zone':rv<=30?'Oversold zone':'RSI 14 · middle range'):'Need 15+ closed bars');
   const m=macd(values);
   set(3,m?m.line.toFixed(digits(pair))+' / '+m.signal.toFixed(digits(pair)):'—','MACD line / signal · local calculation');
-  set(4,'—','ADX not yet implemented');
+  const avx=adx(candles,14);
+  set(4,Number.isFinite(avx)?avx.toFixed(1):'—','ADX 14 · Wilder directional movement');
   const av=atr(candles);
   set(5,Number.isFinite(av)?fmt(av,pair):'—','ATR 14 · local calculation');
   const bb=bollinger(values);
