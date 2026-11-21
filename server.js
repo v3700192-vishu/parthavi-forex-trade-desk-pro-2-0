@@ -345,7 +345,7 @@ async function getFederalReserveReferenceRates() {
     relay:'FRED graph CSV',pairs:fedPairs,
     meta:{
       observationDate,ageDays,
-      freshness:ageDays<=5?'FRESH_WEEKLY_REFERENCE':'STALE_WEEKLY_REFERENCE',
+      freshness:ageDays<=10?'CURRENT_WEEKLY_REFERENCE':'STALE_WEEKLY_REFERENCE',
       frequency:'daily observations released weekly',
       signalEligible:false,
       disclaimer:'Federal Reserve H.10 noon buying rates are published weekly for the previous business week. They are compared with ECB reference rates on the same date. This is historical/reference validation only, not a live quote or intraday signal.'
