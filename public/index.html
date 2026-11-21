@@ -560,7 +560,7 @@ table .blank,.blank{color:#bdabb2!important}
  const digits=pair=>pair.includes('JPY')?3:5;
  const hasNumber=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value));
  const fmt=(value,pair=pairNow())=>hasNumber(value)?Number(value).toFixed(digits(pair)):'—';
- const fmtPercent=value=>Number.isFinite(Number(value))?(Number(value)>=0?'+':'')+Number(value).toFixed(3)+'%':'—';
+ const fmtPercent=value=>hasNumber(value)?(Number(value)>=0?'+':'')+Number(value).toFixed(3)+'%':'—';
  const isoShort=value=>value?String(value).replace('T',' ').replace('Z',' UTC').slice(0,23):'—';
 
  function connector(state,message,good=false){
