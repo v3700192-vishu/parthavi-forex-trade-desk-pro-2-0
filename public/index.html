@@ -316,6 +316,11 @@ table .blank,.blank{color:#bdabb2!important}
 #riskPlanner .indicator{min-width:0}
 #riskPlanner .indicator b{font-size:clamp(13px,1.4vw,19px);overflow-wrap:anywhere}
 
+
+/* Derived cross-pair analytics badges */
+#currencyStrengthStatus,#correlationStatus{white-space:normal;text-align:center;max-width:180px}
+#correlationTable td[data-corr-col]{font-variant-numeric:tabular-nums}
+
 </style>
 </head>
 <body>
@@ -449,8 +454,8 @@ table .blank,.blank{color:#bdabb2!important}
  <div class="sectionhead"><div><div class="eyebrow">MACROECONOMIC CONTEXT</div><h2>Fundamentals, News & Currency Strength</h2><p>Central-bank policy, rate differentials, macro releases and global risk context.</p></div></div>
  <div class="card">
   <div class="grid fundgrid">
-   <div class="fund"><small>BASE CURRENCY STRENGTH</small><b>—</b><p>Relative strength score</p></div>
-   <div class="fund"><small>QUOTE CURRENCY STRENGTH</small><b>—</b><p>Relative strength score</p></div>
+   <div class="fund"><small>BASE CURRENCY · 24H</small><b id="baseCurrencyStrength">—</b><p>Pair-derived 15M return score</p></div>
+   <div class="fund"><small>QUOTE CURRENCY · 24H</small><b id="quoteCurrencyStrength">—</b><p>Pair-derived 15M return score</p></div>
    <div class="fund"><small>INTEREST RATE DIFFERENTIAL</small><b>—</b><p>Central-bank policy spread</p></div>
    <div class="fund"><small>RISK SENTIMENT</small><b>—</b><p>Risk-on / risk-off context</p></div>
    <div class="fund"><small>CENTRAL BANK BIAS</small><b>—</b><p>Hawkish / neutral / dovish</p></div>
@@ -466,7 +471,7 @@ table .blank,.blank{color:#bdabb2!important}
  </div>
  <div class="grid two section">
   <div class="card"><div class="cardhead"><h3>Fundamental Source Agreement</h3><span class="tag muted">AWAITING SOURCES</span></div><div class="list"><div class="listrow"><span>Central bank policy</span><b>—</b></div><div class="listrow"><span>Inflation & employment</span><b>—</b></div><div class="listrow"><span>Growth / GDP</span><b>—</b></div><div class="listrow"><span>Geopolitical / global risk</span><b>—</b></div><div class="listrow"><span>Pair-specific news</span><b>—</b></div></div></div>
-  <div class="card"><div class="cardhead"><h3>Currency Strength Board</h3><span class="tag muted">ALL 8 CURRENCIES</span></div><div class="heat"><div><b>USD</b><span>—</span></div><div><b>EUR</b><span>—</span></div><div><b>GBP</b><span>—</span></div><div><b>JPY</b><span>—</span></div><div><b>CHF</b><span>—</span></div><div><b>AUD</b><span>—</span></div><div><b>NZD</b><span>—</span></div><div><b>CAD</b><span>—</span></div></div></div>
+  <div class="card"><div class="cardhead"><h3>Currency Strength Board</h3><span class="tag muted" id="currencyStrengthStatus">WAITING FOR 15M HISTORY</span></div><div class="heat"><div><b>USD</b><span data-currency-strength="USD">—</span></div><div><b>EUR</b><span data-currency-strength="EUR">—</span></div><div><b>GBP</b><span data-currency-strength="GBP">—</span></div><div><b>JPY</b><span data-currency-strength="JPY">—</span></div><div><b>CHF</b><span data-currency-strength="CHF">—</span></div><div><b>AUD</b><span data-currency-strength="AUD">—</span></div><div><b>NZD</b><span data-currency-strength="NZD">—</span></div><div><b>CAD</b><span data-currency-strength="CAD">—</span></div></div><div class="notice" id="currencyStrengthNote" style="margin-top:10px">Calculated from synchronized closed 15M pair returns. This is derived market context, not an independent confirmation source.</div></div>
  </div>
 </section>
 
@@ -491,16 +496,16 @@ table .blank,.blank{color:#bdabb2!important}
 </section>
 
 <section class="section" id="correlation">
- <div class="sectionhead"><div><div class="eyebrow">INTER-MARKET RELATIONSHIPS</div><h2>Currency Correlation Matrix</h2><p>Rolling correlation helps detect duplicated exposure and conflicting pair signals.</p></div><span class="tag muted">HISTORICAL DATA REQUIRED</span></div>
- <div class="card"><div class="tablewrap"><table class="matrix"><thead><tr><th>PAIR</th><th>EUR/USD</th><th>GBP/USD</th><th>USD/JPY</th><th>USD/CHF</th><th>AUD/USD</th><th>NZD/USD</th><th>USD/CAD</th></tr></thead><tbody>
- <tr><td>EUR/USD</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
- <tr><td>GBP/USD</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
- <tr><td>USD/JPY</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
- <tr><td>USD/CHF</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
- <tr><td>AUD/USD</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
- <tr><td>NZD/USD</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
- <tr><td>USD/CAD</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
- </tbody></table></div><div class="notice" style="margin-top:10px">Correlation values will be calculated from synchronized returns over selected rolling windows. Blank values are intentional until aligned history is loaded.</div></div>
+ <div class="sectionhead"><div><div class="eyebrow">INTER-MARKET RELATIONSHIPS</div><h2>Currency Correlation Matrix</h2><p>Pearson correlation of synchronized closed 15M log returns across all seven pairs.</p></div><span class="tag muted" id="correlationStatus">WAITING FOR ALIGNED HISTORY</span></div>
+ <div class="card"><div class="tablewrap"><table class="matrix" id="correlationTable"><thead><tr><th>PAIR</th><th>EUR/USD</th><th>GBP/USD</th><th>USD/JPY</th><th>USD/CHF</th><th>AUD/USD</th><th>NZD/USD</th><th>USD/CAD</th></tr></thead><tbody>
+ <tr data-corr-row="EUR/USD"><td>EUR/USD</td><td data-corr-col="EUR/USD">—</td><td data-corr-col="GBP/USD">—</td><td data-corr-col="USD/JPY">—</td><td data-corr-col="USD/CHF">—</td><td data-corr-col="AUD/USD">—</td><td data-corr-col="NZD/USD">—</td><td data-corr-col="USD/CAD">—</td></tr>
+ <tr data-corr-row="GBP/USD"><td>GBP/USD</td><td data-corr-col="EUR/USD">—</td><td data-corr-col="GBP/USD">—</td><td data-corr-col="USD/JPY">—</td><td data-corr-col="USD/CHF">—</td><td data-corr-col="AUD/USD">—</td><td data-corr-col="NZD/USD">—</td><td data-corr-col="USD/CAD">—</td></tr>
+ <tr data-corr-row="USD/JPY"><td>USD/JPY</td><td data-corr-col="EUR/USD">—</td><td data-corr-col="GBP/USD">—</td><td data-corr-col="USD/JPY">—</td><td data-corr-col="USD/CHF">—</td><td data-corr-col="AUD/USD">—</td><td data-corr-col="NZD/USD">—</td><td data-corr-col="USD/CAD">—</td></tr>
+ <tr data-corr-row="USD/CHF"><td>USD/CHF</td><td data-corr-col="EUR/USD">—</td><td data-corr-col="GBP/USD">—</td><td data-corr-col="USD/JPY">—</td><td data-corr-col="USD/CHF">—</td><td data-corr-col="AUD/USD">—</td><td data-corr-col="NZD/USD">—</td><td data-corr-col="USD/CAD">—</td></tr>
+ <tr data-corr-row="AUD/USD"><td>AUD/USD</td><td data-corr-col="EUR/USD">—</td><td data-corr-col="GBP/USD">—</td><td data-corr-col="USD/JPY">—</td><td data-corr-col="USD/CHF">—</td><td data-corr-col="AUD/USD">—</td><td data-corr-col="NZD/USD">—</td><td data-corr-col="USD/CAD">—</td></tr>
+ <tr data-corr-row="NZD/USD"><td>NZD/USD</td><td data-corr-col="EUR/USD">—</td><td data-corr-col="GBP/USD">—</td><td data-corr-col="USD/JPY">—</td><td data-corr-col="USD/CHF">—</td><td data-corr-col="AUD/USD">—</td><td data-corr-col="NZD/USD">—</td><td data-corr-col="USD/CAD">—</td></tr>
+ <tr data-corr-row="USD/CAD"><td>USD/CAD</td><td data-corr-col="EUR/USD">—</td><td data-corr-col="GBP/USD">—</td><td data-corr-col="USD/JPY">—</td><td data-corr-col="USD/CHF">—</td><td data-corr-col="AUD/USD">—</td><td data-corr-col="NZD/USD">—</td><td data-corr-col="USD/CAD">—</td></tr>
+ </tbody></table></div><div class="notice" style="margin-top:10px">Values use the last up to 96 synchronized 15M closed-bar returns (minimum 30). This is historical correlation from one indicative provider, not a predictive signal.</div></div>
 </section>
 
 <section class="section" id="agreement">
@@ -1153,22 +1158,162 @@ table .blank,.blank{color:#bdabb2!important}
    if(modelCells.length>1)modelCells[1].textContent=allFresh&&quoteFresh&&['BULLISH','BEARISH'].includes(sides[0])&&new Set(sides).size===1?'5/5 TF · 1 SOURCE':'TF / QUOTE WAIT';
   }
  }
+
+ const CURRENCY_CODES=['USD','EUR','GBP','JPY','CHF','AUD','NZD','CAD'];
+ let crossPairAnalytics=null;
+ let crossPairAnalyticsBusy=false;
+ function clearCrossPairDisplays(message){
+  document.querySelectorAll('[data-currency-strength]').forEach(el=>el.textContent='—');
+  setNodeText('baseCurrencyStrength','—');setNodeText('quoteCurrencyStrength','—');
+  document.querySelectorAll('[data-corr-row]').forEach(row=>{
+   row.querySelectorAll('[data-corr-col]').forEach(cell=>cell.textContent='—');
+  });
+  const strengthStatus=$('#currencyStrengthStatus'),corrStatus=$('#correlationStatus');
+  if(strengthStatus)strengthStatus.textContent=message||'WAIT · NO ALIGNED HISTORY';
+  if(corrStatus)corrStatus.textContent=message||'WAIT · NO ALIGNED HISTORY';
+  const note=$('#currencyStrengthNote');if(note)note.textContent='All seven pairs must provide overlapping closed 15M candles. Missing or malformed data leaves this panel blank.';
+ }
+ function pearsonCorrelation(a,b){
+  if(!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length||a.length<30)return NaN;
+  const n=a.length,meanA=a.reduce((s,x)=>s+x,0)/n,meanB=b.reduce((s,x)=>s+x,0)/n;
+  let cov=0,varA=0,varB=0;
+  for(let i=0;i<n;i++){
+   const da=a[i]-meanA,db=b[i]-meanB;
+   cov+=da*db;varA+=da*da;varB+=db*db;
+  }
+  if(varA<=0||varB<=0)return NaN;
+  return Math.max(-1,Math.min(1,cov/Math.sqrt(varA*varB)));
+ }
+ function buildCrossPairAnalytics(results){
+  if(!Array.isArray(results)||results.length!==PAIRS.length||results.some(r=>!r||!r.ok||!Array.isArray(r.candles)))return null;
+  const pairMaps=new Map();
+  let allFresh=true;
+  for(let i=0;i<PAIRS.length;i++){
+   const result=results[i];
+   if(result.pair!==PAIRS[i]||result.candles.length<31)return null;
+   if(result.meta?.freshness!=='FRESH')allFresh=false;
+   const map=new Map();
+   result.candles.forEach(c=>{
+    const time=Number.isFinite(Number(c.timestamp))?Number(c.timestamp):Date.parse(c.time);
+    const close=Number(c.close);
+    if(Number.isFinite(time)&&Number.isFinite(close)&&close>0)map.set(time,close);
+   });
+   if(map.size<31)return null;
+   pairMaps.set(PAIRS[i],map);
+  }
+  let commonTimes=null;
+  for(const pair of PAIRS){
+   const keys=new Set(pairMaps.get(pair).keys());
+   commonTimes=commonTimes===null?keys:new Set([...commonTimes].filter(t=>keys.has(t)));
+  }
+  const times=[...(commonTimes||[])].sort((a,b)=>a-b);
+  if(times.length<31)return null;
+  const windowReturns=Math.min(96,times.length-1);
+  if(windowReturns<30)return null;
+  const windowTimes=times.slice(-(windowReturns+1));
+  const closeSeries=new Map();
+  const returns=new Map();
+  for(const pair of PAIRS){
+   const map=pairMaps.get(pair);
+   const closes=windowTimes.map(t=>map.get(t));
+   if(closes.some(v=>!Number.isFinite(v)||v<=0))return null;
+   closeSeries.set(pair,closes);
+   const values=[];
+   for(let i=1;i<closes.length;i++)values.push(Math.log(closes[i]/closes[i-1]));
+   returns.set(pair,values);
+  }
+  const correlations={};
+  for(const rowPair of PAIRS){
+   correlations[rowPair]={};
+   for(const colPair of PAIRS){
+    correlations[rowPair][colPair]=rowPair===colPair?1:pearsonCorrelation(returns.get(rowPair),returns.get(colPair));
+   }
+  }
+  const contributions=Object.fromEntries(CURRENCY_CODES.map(c=>[c,[]]));
+  const pairReturns={};
+  for(const pair of PAIRS){
+   const [base,quote]=pair.split('/');
+   const closes=closeSeries.get(pair);
+   const pct=(closes[closes.length-1]/closes[0]-1)*100;
+   pairReturns[pair]=pct;
+   contributions[base].push(pct);
+   contributions[quote].push(-pct);
+  }
+  const rawScores={};
+  for(const currency of CURRENCY_CODES){
+   const values=contributions[currency];
+   if(!values.length)return null;
+   rawScores[currency]=values.reduce((a,b)=>a+b,0)/values.length;
+  }
+  const centre=CURRENCY_CODES.reduce((sum,c)=>sum+rawScores[c],0)/CURRENCY_CODES.length;
+  const strengthScores=Object.fromEntries(CURRENCY_CODES.map(c=>[c,rawScores[c]-centre]));
+  return {
+   correlations,strengthScores,pairReturns,
+   commonBars:times.length,returnsCount:windowReturns,
+   firstTime:new Date(windowTimes[0]).toISOString(),
+   lastTime:new Date(windowTimes[windowTimes.length-1]).toISOString(),
+   allFresh,provider:'Biquote'
+  };
+ }
+ function displayStrength(value){
+  return Number.isFinite(value)?(value>=0?'+':'')+value.toFixed(3)+'%':'—';
+ }
+ function renderCrossPairAnalytics(analytics){
+  if(!analytics){clearCrossPairDisplays('WAIT · INSUFFICIENT ALIGNED DATA');crossPairAnalytics=null;return;}
+  crossPairAnalytics=analytics;
+  CURRENCY_CODES.forEach(currency=>{
+   const node=document.querySelector('[data-currency-strength="'+currency+'"]');
+   if(node)node.textContent=displayStrength(analytics.strengthScores[currency]);
+  });
+  const pair=pairNow(),[base,quote]=pair.split('/');
+  setNodeText('baseCurrencyStrength',displayStrength(analytics.strengthScores[base]));
+  setNodeText('quoteCurrencyStrength',displayStrength(analytics.strengthScores[quote]));
+  document.querySelectorAll('[data-corr-row]').forEach(row=>{
+   const rowPair=row.getAttribute('data-corr-row');
+   row.querySelectorAll('[data-corr-col]').forEach(cell=>{
+    const colPair=cell.getAttribute('data-corr-col');
+    const value=analytics.correlations[rowPair]?.[colPair];
+    cell.textContent=Number.isFinite(value)?(value>=0?'+':'')+value.toFixed(2):'—';
+   });
+  });
+  const freshness=analytics.allFresh?'FRESH':'HISTORICAL · STALE';
+  const label='15M · '+analytics.returnsCount+' RETURNS · '+freshness;
+  const strengthStatus=$('#currencyStrengthStatus'),corrStatus=$('#correlationStatus');
+  if(strengthStatus)strengthStatus.textContent=label;
+  if(corrStatus)corrStatus.textContent=label;
+  const note=$('#currencyStrengthNote');
+  if(note)note.textContent='Derived relative average contribution from seven synchronized 15M pairs over '+analytics.returnsCount+' returns ('+analytics.firstTime+' to '+analytics.lastTime+'). One indicative source only; not independent fundamental confirmation.';
+ }
+ async function loadCrossPairAnalytics(){
+  if(!apiReady||crossPairAnalyticsBusy)return;
+  crossPairAnalyticsBusy=true;
+  try{
+   const results=await Promise.all(PAIRS.map(async pair=>{
+    try{return await requestJson('/api/forex/candles?pair='+encodeURIComponent(pair)+'&timeframe=15M',20000);}
+    catch(error){return {ok:false,pair,error:String(error.message||'unavailable')};}
+   }));
+   renderCrossPairAnalytics(buildCrossPairAnalytics(results));
+  }catch(error){
+   clearCrossPairDisplays('WAIT · CROSS-PAIR ANALYSIS UNAVAILABLE');
+  }finally{crossPairAnalyticsBusy=false;}
+ }
  async function loadWatchlist(){if(!apiReady)return;await Promise.all(PAIRS.map(pair=>loadQuote(pair,true)));}
  async function refreshSelected(){if(!apiReady)return;await Promise.all([loadQuote(pairNow(),false),loadCandles(pairNow(),tfNow())]);}
  async function init(){
   if(await getStatus()){
-   await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews(),loadMultiTimeframe(pairNow())]);
+   await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews(),loadMultiTimeframe(pairNow()),loadCrossPairAnalytics()]);
    await startQuoteStream();
   }
   setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadQuote(pairNow(),false);},QUOTE_REFRESH_MS);
   setInterval(()=>{if(apiReady)refreshQuoteAges();},5000);
   setInterval(()=>{if(apiReady)loadCalendar();},900000);
+  setInterval(()=>{if(apiReady)loadCrossPairAnalytics();},900000);
   setInterval(()=>{if(apiReady)loadMarketNews();},300000);
   setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadWatchlist();},WATCHLIST_REFRESH_MS);
   setInterval(()=>{if(apiReady){loadCandles(pairNow(),tfNow());loadMultiTimeframe(pairNow());}},CANDLE_REFRESH_MS);
   setInterval(async()=>{if(!apiReady)await getStatus();},60000);
  }
- $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());},0));
+ $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());if(crossPairAnalytics)renderCrossPairAnalytics(crossPairAnalytics);},0));
  document.querySelectorAll('#tfbar button').forEach(button=>button.addEventListener('click',()=>setTimeout(refreshSelected,0)));
  document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(refreshSelected,0)));
  init();
