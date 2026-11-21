@@ -26,7 +26,18 @@ const ECB_REFERENCE_BASE = 'https://api.frankfurter.dev';
 const REFERENCE_CURRENCIES = ['USD','GBP','JPY','CHF','AUD','NZD','CAD'];
 const REFERENCE_PAIRS = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD'];
 const REFERENCE_CACHE_MS = 15 * 60 * 1000;
+const FED_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
+const FED_H10_SERIES = [
+  ['EUR/USD','DEXUSEU'],
+  ['GBP/USD','DEXUSUK'],
+  ['USD/JPY','DEXJPUS'],
+  ['USD/CHF','DEXSZUS'],
+  ['AUD/USD','DEXUSAL'],
+  ['NZD/USD','DEXUSNZ'],
+  ['USD/CAD','DEXCAUS']
+];
 let referenceCache = null;
+let fedReferenceCache = null;
 const quoteCache = new Map();
 const candleCache = new Map();
 const requestWindows = new Map();
@@ -226,6 +237,122 @@ async function getEcbReferenceRates() {
   return result;
 }
 
+function parseFredCsv(text,seriesId) {
+  if(typeof text!=='string'||text.length>1000000) {
+    const e=new Error('fred_csv_invalid_size');e.statusCode=502;throw e;
+  }
+  const lines=text.trim().split(/\\r?\\n/);
+  const header=(lines.shift()||'').split(',');
+  if(header[0]!=='observation_date'||header[1]!==seriesId) {
+    const e=new Error('fred_csv_invalid_header_'+seriesId);e.statusCode=502;throw e;
+  }
+  const observations=new Map();
+  for(const line of lines) {
+    const cells=line.split(',');
+    const date=String(cells[0]||'').trim();
+    const raw=String(cells[1]||'').trim();
+    const value=Number(raw);
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||!raw||raw==='.'||!Number.isFinite(value)||value<=0)continue;
+    observations.set(date,value);
+  }
+  return observations;
+}
+async function fetchFredSeries(seriesId,fromDate,toDate) {
+  const url=new URL('/graph/fredgraph.csv','https://fred.stlouisfed.org');
+  url.searchParams.set('id',seriesId);
+  url.searchParams.set('cosd',fromDate);
+  url.searchParams.set('coed',toDate);
+  const response=await fetch(url,{headers:{'Accept':'text/csv'},signal:AbortSignal.timeout(15000)});
+  if(!response.ok) {
+    const e=new Error('fred_'+seriesId+'_http_'+response.status);
+    e.statusCode=502;throw e;
+  }
+  return parseFredCsv(await response.text(),seriesId);
+}
+async function getFederalReserveReferenceRates() {
+  if(fedReferenceCache&&Date.now()-fedReferenceCache.at<FED_REFERENCE_CACHE_MS) {
+    return {...fedReferenceCache.value,cache:'HIT'};
+  }
+  const today=new Date().toISOString().slice(0,10);
+  const fromDate=new Date(Date.now()-20*86400000).toISOString().slice(0,10);
+  const seriesMaps=await Promise.all(FED_H10_SERIES.map(async([pair,seriesId])=>({
+    pair,seriesId,observations:await fetchFredSeries(seriesId,fromDate,today)
+  })));
+  let commonDates=null;
+  for(const item of seriesMaps) {
+    const dates=new Set(item.observations.keys());
+    commonDates=commonDates===null?dates:new Set([...commonDates].filter(date=>dates.has(date)));
+  }
+  const fedDates=[...(commonDates||[])].sort();
+  if(!fedDates.length) {
+    const e=new Error('fred_h10_no_common_observation');e.statusCode=502;throw e;
+  }
+  const latestFedDate=fedDates[fedDates.length-1];
+  const ecbUrl=new URL('/v2/providers/ecb/rates',ECB_REFERENCE_BASE);
+  ecbUrl.searchParams.set('base','EUR');
+  ecbUrl.searchParams.set('quotes',REFERENCE_CURRENCIES.join(','));
+  ecbUrl.searchParams.set('from',fromDate);
+  ecbUrl.searchParams.set('to',latestFedDate);
+  const ecbResponse=await fetch(ecbUrl,{headers:{'Accept':'application/json'},signal:AbortSignal.timeout(12000)});
+  if(!ecbResponse.ok) {
+    const e=new Error('ecb_overlap_http_'+ecbResponse.status);e.statusCode=502;throw e;
+  }
+  const ecbRows=await ecbResponse.json();
+  if(!Array.isArray(ecbRows)) {
+    const e=new Error('ecb_overlap_invalid_response');e.statusCode=502;throw e;
+  }
+  const ecbByDate=new Map();
+  ecbRows.forEach(row=>{
+    const date=String(row.date||'').slice(0,10);
+    const quote=String(row.quote||'').toUpperCase();
+    const rate=Number(row.rate);
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||
+       !REFERENCE_CURRENCIES.includes(quote)||!Number.isFinite(rate)||rate<=0)return;
+    if(!ecbByDate.has(date))ecbByDate.set(date,{});
+    ecbByDate.get(date)[quote]=rate;
+  });
+  const commonComparisonDates=fedDates.filter(date=>{
+    const rates=ecbByDate.get(date);
+    return rates&&REFERENCE_CURRENCIES.every(currency=>Number.isFinite(rates[currency])&&rates[currency]>0);
+  });
+  if(!commonComparisonDates.length) {
+    const e=new Error('fred_ecb_no_common_reference_date');e.statusCode=502;throw e;
+  }
+  const observationDate=commonComparisonDates[commonComparisonDates.length-1];
+  const ecb=ecbByDate.get(observationDate);
+  const fedPairs=seriesMaps.map(item=>{
+    const fedRate=item.observations.get(observationDate);
+    let ecbRate=null;
+    const [base,quote]=item.pair.split('/');
+    const basePerEur=base==='EUR'?1:ecb[base];
+    const quotePerEur=quote==='EUR'?1:ecb[quote];
+    if(Number.isFinite(basePerEur)&&basePerEur>0&&Number.isFinite(quotePerEur)&&quotePerEur>0) {
+      ecbRate=quotePerEur/basePerEur;
+    }
+    const differencePercent=Number.isFinite(fedRate)&&Number.isFinite(ecbRate)&&ecbRate>0
+      ?(fedRate/ecbRate-1)*100:null;
+    return {pair:item.pair,series:item.seriesId,fedRate,ecbRate,differencePercent,date:observationDate};
+  });
+  if(fedPairs.some(item=>!Number.isFinite(item.fedRate)||!Number.isFinite(item.ecbRate))) {
+    const e=new Error('fred_ecb_reference_pair_validation_failed');e.statusCode=502;throw e;
+  }
+  const ageDays=Math.max(0,Math.floor((Date.parse(today+'T00:00:00Z')-Date.parse(observationDate+'T00:00:00Z'))/86400000));
+  const result={
+    ok:true,provider:'Board of Governors of the Federal Reserve System · H.10',
+    relay:'FRED graph CSV',pairs:fedPairs,
+    meta:{
+      observationDate,ageDays,
+      freshness:ageDays<=5?'FRESH_WEEKLY_REFERENCE':'STALE_WEEKLY_REFERENCE',
+      frequency:'daily observations released weekly',
+      signalEligible:false,
+      disclaimer:'Federal Reserve H.10 noon buying rates are published weekly for the previous business week. They are compared with ECB reference rates on the same date. This is historical/reference validation only, not a live quote or intraday signal.'
+    },
+    fetchedAt:new Date().toISOString(),cache:'MISS'
+  };
+  fedReferenceCache={at:Date.now(),value:result};
+  return result;
+}
+
 async function getNews() {
   const url=new URL('/api/news/market',PROVIDER_BASE);
   url.searchParams.set('language','en');
@@ -360,6 +487,10 @@ const server=http.createServer(async(req,res)=>{
     });
   }
   const pair=normalisePair(url.searchParams.get('pair'));
+  if(url.pathname==='/api/forex/fed-reference-rates') {
+    try { return respond(res,200,await getFederalReserveReferenceRates()); }
+    catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,provider:'Federal Reserve H.10',relay:'FRED graph CSV',error:safeError(error),signalEligible:false}); }
+  }
   if(url.pathname==='/api/forex/reference-rates') {
     try { return respond(res,200,await getEcbReferenceRates()); }
     catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,provider:'European Central Bank',relay:'Frankfurter API',error:safeError(error),signalEligible:false}); }
@@ -409,6 +540,7 @@ async function upstreamSelfCheck() {
   const checks = [
     ['EURUSD quote', () => getQuote('EUR/USD')],
     ['ECB reference rates', () => getEcbReferenceRates()],
+    ['Federal Reserve H10 reference rates', () => getFederalReserveReferenceRates()],
     ['EURUSD 15M candles', () => getCandles('EUR/USD','15M')],
     ['economic calendar', () => getCalendar()],
     ['market news', () => getNews()]
@@ -421,7 +553,9 @@ async function upstreamSelfCheck() {
       return;
     }
     const value=result.value;
-    if(label==='ECB reference rates') {
+    if(label==='Federal Reserve H10 reference rates') {
+      console.log('[UPSTREAM_CHECK] '+label+'=OK observationDate='+value.meta.observationDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
+    } else if(label==='ECB reference rates') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK latestDate='+value.meta.latestDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
     } else if(label==='EURUSD quote') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK freshness='+value.meta.freshness+' ageSeconds='+value.meta.quoteAgeSeconds+' state='+value.quote.marketState);
