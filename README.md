@@ -5,46 +5,37 @@ Independent, prediction-only Forex analytics workspace. This repository is separ
 ## Live services
 
 - Dashboard: https://parthavi-forex-trade-desk-pro-2-0.onrender.com
-- Secure data API: https://parthavi-forex-data-api.onrender.com
-- Data service runtime: Node.js on Render Free, Singapore region
-- Market-data provider adapter: Twelve Data REST candles
+- Data API: https://parthavi-forex-data-api.onrender.com
+- Dashboard and data API run as separate Render services.
+- Data provider: Biquote public REST API (no API key required).
 
-## Configure the provider key
+## Market-data integration
 
-1. Create a Twelve Data Basic account: https://twelvedata.com/pricing
-2. Copy the API key from the Twelve Data dashboard.
-3. Open the Render service: https://dashboard.render.com/web/srv-dc0ndne1egvs738fskd0
-4. Open **Environment** and add:
-   - Key: `TWELVE_DATA_API_KEY`
-   - Value: your Twelve Data API key
-5. Save/deploy the service. The key stays in the backend environment and is not embedded in the public website.
+The backend normalises Biquote quote snapshots and OHLC bars for:
+EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, NZD/USD and USD/CAD.
 
-Do not paste the provider key into the public website or commit it to GitHub.
+Supported chart intervals: 5M, 15M, 30M, 1H and 4H.
 
-## API endpoints
+- `GET /health` — service status
+- `GET /api/forex/status` — provider and feed configuration
+- `GET /api/forex/quote?pair=EUR/USD` — bid, ask, mid, spread, quote age and market state
+- `GET /api/forex/candles?pair=EUR/USD&timeframe=15M` — validated closed OHLC bars
 
-- `GET /health` — service health and provider-key status
-- `GET /api/forex/status` — data provider configuration status
-- `GET /api/forex/candles?pair=EUR/USD&timeframe=15M` — normalized OHLC candles
+Biquote's terms permit using and displaying its data in web dashboards, but prohibit reselling or redistributing the raw feed. Its quotes/candles are indicative third-party data, may be delayed, incomplete or wrong, and have no uptime SLA. Do not present them as guaranteed executable broker prices or regulated benchmark rates. See:
+- https://biquote.io/docs/
+- https://biquote.io/terms.html
 
-Supported pairs: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, NZD/USD, USD/CAD.
-
-Supported timeframes: 5M, 15M, 30M, 1H, 4H.
-
-## Free-tier controls
-
-The dashboard uses the selected pair/timeframe on a 3-minute refresh and refreshes the seven-pair watchlist hourly while open. The backend applies a local cap of 8 requests per minute and 760 requests per UTC day, below the published Twelve Data Basic allowance of 8 credits/minute and 800 credits/day. A cache avoids repeated requests.
-
-Render Free services can sleep when idle and may take time to wake.
+The dashboard refreshes the selected quote every 5 seconds, the 7-pair watchlist every 60 seconds, and the selected timeframe candles every 3 minutes. The API caches quote responses for 4 seconds and candles for 60 seconds, and applies a local per-IP request cap.
 
 ## Integrity rules
 
-- No synthetic market prices, candles, spreads, or performance statistics.
-- The Twelve Data candles provide OHLC close values; bid, ask, and spread remain blank unless a verified source explicitly supplies them.
-- Stale, missing, malformed, or quota-blocked data is not used for signals.
-- The forecast stays **WAIT** until multi-timeframe agreement, validation, and calibrated out-of-sample performance are established.
+- No synthetic prices, spreads, candles, probability, or performance statistics.
+- Bid, ask, mid and spread are displayed only when returned and validated by the quote source.
+- The current unfinished OHLC candle is excluded from indicator calculations.
+- Quote age and closed-candle age are checked separately for each timeframe. Stale or closed-market data blocks a fresh-data state.
+- Biquote is one indicative source, not independent source agreement. Therefore the forecast remains **WAIT** until independent corroboration, top-down timeframe checks, and out-of-sample probability calibration are implemented and validated.
 - No broker order execution is implemented.
-- EMA, RSI, MACD, ATR, and Bollinger values are calculated from returned OHLC candles in the dashboard. ADX and consolidated spot-FX volume remain unavailable until validated inputs are added.
+- EMA, RSI, MACD, ATR and Bollinger Bands are computed from returned closed OHLC candles. ADX and other unimplemented indicators remain blank. Real traded FX volume is not inferred from tick volume.
 
 ## Run locally
 
@@ -54,4 +45,4 @@ npm run check
 npm start
 ```
 
-Set `TWELVE_DATA_API_KEY` in the local environment before requesting provider candles.
+No provider API key is required. Render Free instances may sleep when idle and take time to wake.
