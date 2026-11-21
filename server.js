@@ -22,7 +22,7 @@ const INTERVALS = new Map([
   ['1H', '1h'], ['4H', '4h']
 ]);
 const CACHE_TTL_MS = 180000;
-const MAX_CALLS_PER_MINUTE = 7;
+const MAX_CALLS_PER_MINUTE = 8;
 const MAX_CALLS_PER_UTC_DAY = 760;
 const cache = new Map();
 const usage = { minute: -1, minuteCalls: 0, day: '', dayCalls: 0 };
