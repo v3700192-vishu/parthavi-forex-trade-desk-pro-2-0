@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07172f">
+<meta name="description" content="PARTHAVI Forex Trade Desk Pro 2.0 — independent Forex intelligence and prediction-only workspace.">
+<title>PARTHAVI FOREX TRADE DESK PRO 2.0</title>
+<link rel="icon" type="image/webp" href="./assets/parthavi-forex-logo.webp">
+<link rel="manifest" href="./manifest.webmanifest">
+<style>
+:root{--navy:#061329;--navy2:#0a2040;--panel:#0d2342;--panel2:#10294c;--line:rgba(232,192,108,.2);--gold:#e8c06c;--gold2:#fff0bd;--blue:#65a9f5;--muted:#9db0ca;--text:#f2f5fb;--green:#43d6a3;--red:#ef7c82;--radius:18px;--shadow:0 20px 55px rgba(0,0,0,.32)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(900px 500px at 85% -8%,rgba(50,123,210,.2),transparent 62%),radial-gradient(700px 440px at 0% 0%,rgba(232,192,108,.09),transparent 60%),var(--navy);color:var(--text);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}button{font:inherit;color:inherit;cursor:pointer}.app{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.sidebar{position:sticky;top:0;height:100vh;padding:22px 14px;background:rgba(4,15,34,.94);border-right:1px solid var(--line);display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:10px;padding:4px 7px 24px}.brand img{width:48px;height:48px;object-fit:cover;border-radius:50%;border:1px solid var(--gold);box-shadow:0 0 0 4px rgba(232,192,108,.08)}.brand b{display:block;color:var(--gold2);font-size:12px;letter-spacing:.13em}.brand small{display:block;color:#9eb0cb;font-size:8px;letter-spacing:.1em}.navlabel{font-size:9px;font-weight:900;letter-spacing:.2em;color:#7188aa;padding:12px 11px 7px}.nav{display:grid;gap:5px}.nav button{border:1px solid transparent;border-radius:11px;padding:10px 12px;text-align:left;background:transparent;color:#a9bad2;font-size:12px;display:flex;align-items:center;gap:11px}.nav button .ico{width:19px;text-align:center;color:var(--gold);font-size:15px}.nav button.active,.nav button:hover{color:#fff;background:linear-gradient(100deg,rgba(232,192,108,.16),rgba(55,131,222,.1));border-color:rgba(232,192,108,.28)}.sidebottom{margin-top:auto;padding:12px;border:1px solid var(--line);border-radius:13px;background:linear-gradient(145deg,rgba(232,192,108,.08),rgba(69,140,228,.06))}.sidebottom b{font-size:10px;color:var(--gold2)}.sidebottom p{font-size:9px;color:var(--muted);margin:5px 0 0}.main{width:100%;max-width:1560px;margin:auto;padding:22px 28px 60px;min-width:0}.topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.07)}.crumb{font-size:10px;color:#8fa5c4;letter-spacing:.04em}.crumb b{color:var(--gold2)}.topright{display:flex;align-items:center;gap:8px}.pill{padding:7px 11px;border-radius:99px;border:1px solid var(--line);background:rgba(9,29,56,.8);font-size:9px;color:#c3d3e9;white-space:nowrap}.pill.preview{color:#ffdfa0;border-color:rgba(232,192,108,.4);background:rgba(100,73,24,.18)}.avatar{height:35px;width:35px;border-radius:50%;object-fit:cover;border:1px solid var(--gold)}.brandhero{display:grid;grid-template-columns:minmax(0,1fr) 210px;align-items:center;gap:25px;padding:24px 28px;border-radius:23px;border:1px solid rgba(232,192,108,.38);background:radial-gradient(ellipse at 85% 45%,rgba(54,135,224,.22),transparent 40%),radial-gradient(ellipse at 35% 0%,rgba(232,192,108,.13),transparent 50%),linear-gradient(120deg,#0b2141,#0d2b50 55%,#07182f);box-shadow:var(--shadow);margin-bottom:24px;overflow:hidden}.hero-kicker,.eyebrow{font-size:9px;font-weight:900;letter-spacing:.22em;color:var(--gold);text-transform:uppercase}.brandhero h1{font-size:clamp(25px,3vw,39px);line-height:1.08;letter-spacing:-.04em;margin:10px 0;color:#f5f7fc}.brandhero h1 span{color:var(--gold)}.brandhero p{margin:0;color:#b8c9df;max-width:690px;font-size:12px;line-height:1.8}.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:15px}.chips span{font-size:8px;letter-spacing:.1em;font-weight:900;color:#f3dca9;padding:6px 9px;border:1px solid rgba(232,192,108,.27);border-radius:99px;background:rgba(3,17,36,.36)}.hero-logo{width:100%;max-width:210px;aspect-ratio:1;object-fit:contain;border-radius:50%;border:1px solid rgba(232,192,108,.56);box-shadow:0 0 0 7px rgba(232,192,108,.05),0 0 40px rgba(66,145,228,.16)}.page{display:none}.page.active{display:block}.pagehead{display:flex;justify-content:space-between;align-items:end;gap:15px;margin:20px 0 15px}.pagehead h2{font-size:25px;letter-spacing:-.035em;margin:4px 0}.sub{font-size:11px;color:var(--muted);margin:0}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border-radius:11px;border:1px solid var(--line);padding:9px 13px;font-size:10px;background:#102747;color:#d9e6f6}.btn.primary{background:linear-gradient(135deg,#ffedb3,#d5a34f);color:#1b1a18;font-weight:950;border-color:#ffe3a0;box-shadow:0 7px 22px rgba(218,166,74,.18)}.grid{display:grid;gap:13px}.stats{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px}.card{background:linear-gradient(160deg,rgba(15,39,72,.98),rgba(8,27,52,.98));border:1px solid rgba(139,172,211,.17);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);min-width:0}.statlabel,.smalllabel{font-size:9px;letter-spacing:.12em;color:#9db1cc;font-weight:850}.statval{font-size:22px;font-weight:850;color:var(--gold2);margin:8px 0 2px;letter-spacing:-.03em}.statnote,.tiny{font-size:9px;color:#8098b9}.twocol{grid-template-columns:minmax(0,1.5fr) minmax(270px,.85fr)}.cardhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:13px}.cardhead h3{font-size:12px;margin:0;color:#f1f5fd}.pairs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.pair{border:1px solid rgba(136,169,207,.2);border-radius:12px;padding:11px;background:rgba(4,20,42,.48);text-align:left}.pair b{display:block;font-size:11px}.pair small{font-size:8px;color:#8fa6c5}.pair strong{display:block;color:var(--gold2);font-size:14px;margin-top:8px}.pair em{display:block;font-size:8px;color:#859bb8;font-style:normal}.center{text-align:center}.empty{padding:24px 15px;border:1px dashed rgba(137,170,208,.26);border-radius:13px;background:repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(112,150,200,.06) 41px),repeating-linear-gradient(90deg,transparent,transparent 62px,rgba(112,150,200,.06) 63px)}.empty b{display:block;color:var(--gold2);font-size:12px}.empty p{font-size:10px;color:var(--muted);margin:5px auto 0;max-width:330px}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:510px}th{text-align:left;color:#8299b9;font-size:8px;letter-spacing:.12em;padding:10px;border-bottom:1px solid var(--line)}td{font-size:10px;padding:11px 10px;border-bottom:1px solid rgba(255,255,255,.06)}td strong{color:var(--gold2)}.badge{display:inline-block;padding:4px 7px;border-radius:99px;font-size:8px;letter-spacing:.08em;font-weight:900;color:#ffdf9c;border:1px solid rgba(232,192,108,.25);background:rgba(118,83,25,.16)}.badge.off{color:#9fb3ce;background:rgba(110,134,169,.1);border-color:rgba(140,167,204,.2)}.badge.good{color:#65dfb2;border-color:rgba(67,214,163,.24);background:rgba(67,214,163,.08)}.sectiongap{margin-top:14px}.modelgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.model{padding:13px;border:1px solid rgba(232,192,108,.18);background:rgba(232,192,108,.045);border-radius:12px}.model b{font-size:11px;color:var(--gold2)}.model p{font-size:9px;color:var(--muted);margin:5px 0 0}.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.flow div{padding:13px 8px;text-align:center;border-radius:12px;border:1px solid rgba(232,192,108,.2);background:rgba(232,192,108,.05)}.flow b{display:block;font-size:19px;color:var(--gold)}.flow small{font-size:8px;color:#9db0ca}.rule{padding:12px 14px;border:1px solid rgba(232,192,108,.22);border-radius:12px;background:linear-gradient(100deg,rgba(232,192,108,.1),rgba(65,135,218,.04));font-size:10px;color:#cfdaea;margin-top:12px}.rule strong{color:var(--gold2)}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.field{padding:13px;border:1px solid rgba(232,192,108,.15);border-radius:12px;background:rgba(3,17,37,.35)}.field small{display:block;color:#96aaca;font-size:8px;letter-spacing:.12em}.field b{display:block;margin-top:6px;color:var(--gold2);font-size:15px}.list{display:grid;gap:8px}.listrow{display:flex;justify-content:space-between;gap:15px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:10px}.listrow span{color:var(--muted)}.listrow b{color:var(--gold2)}.mobilebar{display:none}.foot{font-size:9px;color:#7890b0;margin-top:16px}
+@media(max-width:1050px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.pairs{grid-template-columns:repeat(2,minmax(0,1fr))}.twocol{grid-template-columns:1fr}.brandhero{grid-template-columns:minmax(0,1fr) 175px}}
+@media(max-width:700px){.app{display:block}.sidebar{display:none}.main{padding:14px 13px 93px}.topbar{margin-bottom:13px}.crumb{font-size:8px}.topright .optional{display:none}.brandhero{grid-template-columns:1fr;padding:17px 15px;gap:14px;text-align:center;border-radius:18px}.hero-logo{grid-row:1;width:150px;justify-self:center}.brandhero h1{font-size:24px}.brandhero p{font-size:10px}.hero-kicker{font-size:8px}.chips{justify-content:center}.pagehead{align-items:start;flex-direction:column}.pagehead h2{font-size:22px}.stats{gap:9px}.card{padding:13px;border-radius:15px}.statval{font-size:19px}.flow{gap:4px}.flow div{padding:9px 3px}.flow b{font-size:15px}.flow small{font-size:7px}.modelgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.mobilebar{position:fixed;z-index:10;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(5,1fr);padding:7px 4px calc(7px + env(safe-area-inset-bottom));background:rgba(4,16,36,.97);border-top:1px solid rgba(232,192,108,.25);backdrop-filter:blur(15px)}.mobilebar button{border:0;background:none;color:#8ea5c7;font-size:8px;padding:5px 1px}.mobilebar button span{display:block;color:var(--gold);font-size:17px;margin-bottom:2px}.mobilebar button.active{color:#ffdfa0}.foot{padding-bottom:12px}}
+@media(max-width:380px){.stats{grid-template-columns:1fr 1fr}.modelgrid{grid-template-columns:1fr}.flow small{display:none}.pair strong{font-size:12px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+ <div class="brand"><img src="./assets/parthavi-forex-logo.webp" alt="PARTHAVI crowned bull and bear logo"><div><b>PARTHAVI</b><small>FOREX TRADE DESK PRO 2.0</small></div></div>
+ <div class="navlabel">TRADING INTELLIGENCE</div>
+ <nav class="nav">
+  <button class="active" data-page="home"><span class="ico">▦</span>Overview</button>
+  <button data-page="pairs"><span class="ico">⇄</span>Major Pairs</button>
+  <button data-page="predict"><span class="ico">◉</span>AI Prediction</button>
+  <button data-page="strategy"><span class="ico">⌁</span>Strategy & Models</button>
+  <button data-page="history"><span class="ico">◷</span>Prediction History</button>
+  <button data-page="accuracy"><span class="ico">⌗</span>Accuracy & Results</button>
+  <button data-page="data"><span class="ico">◈</span>Data Health</button>
+  <button data-page="settings"><span class="ico">⚙</span>Settings</button>
+ </nav>
+ <div class="sidebottom"><b>● PREVIEW · NOT LIVE</b><p>Independent Forex workspace. Verified provider connection is not configured yet.</p></div>
+</aside>
+<main class="main">
+ <header class="topbar"><div class="crumb">PARTHAVI FOREX TRADE DESK PRO 2.0 / <b id="crumb">Overview</b></div><div class="topright"><span class="pill preview">● PREVIEW · NOT LIVE</span><span class="pill optional">PREDICTION ONLY</span><img class="avatar" src="./assets/parthavi-forex-logo.webp" alt="Logo"></div></header>
+
+ <section class="page active" id="home">
+  <div class="brandhero">
+   <div><div class="hero-kicker">Independent Forex Intelligence</div><h1>MARKET INTELLIGENCE.<br><span>ENGINEERED WITH DISCIPLINE.</span></h1><p>PARTHAVI FOREX TRADE DESK PRO 2.0 — a premium command center for all major currency pairs, multi-timeframe analysis and evidence-based AI predictions. Prediction-only mode. No broker orders.</p><div class="chips"><span>7 MAJOR PAIRS</span><span>5 TIMEFRAMES</span><span>AI PREDICTION ONLY</span><span>₹0 DEVELOPMENT PLAN</span></div></div>
+   <img class="hero-logo" src="./assets/parthavi-forex-logo.webp" alt="PARTHAVI FOREX crowned bull and bear emblem">
+  </div>
+  <div class="pagehead"><div><div class="eyebrow">MARKET INTELLIGENCE</div><h2>Forex Command Center</h2><p class="sub">A single view of all major pairs and verified system status.</p></div><div class="actions"><button class="btn" data-goto="data">Data health</button><button class="btn primary" data-goto="pairs">Explore pairs ↗</button></div></div>
+  <div class="grid stats">
+   <div class="card"><div class="statlabel">TRACKED MAJOR PAIRS</div><div class="statval">07 PAIRS</div><div class="statnote">Configured currency universe</div></div>
+   <div class="card"><div class="statlabel">LIVE DATA STATUS</div><div class="statval">NOT CONNECTED</div><div class="statnote">Provider setup required</div></div>
+   <div class="card"><div class="statlabel">ACTIVE PREDICTIONS</div><div class="statval">—</div><div class="statnote">Waiting for verified feed</div></div>
+   <div class="card"><div class="statlabel">VALIDATED ACCURACY</div><div class="statval">—</div><div class="statnote">No out-of-sample results</div></div>
+  </div>
+  <div class="grid twocol">
+   <div class="card"><div class="cardhead"><h3>Major currency pairs</h3><button class="btn" data-goto="pairs">View all</button></div><div class="pairs" id="homePairs"></div><p class="foot">Prices intentionally blank until a verified market-data provider is connected.</p></div>
+   <div class="card"><div class="cardhead"><h3>Prediction readiness</h3><span class="badge">SETUP PENDING</span></div><div class="empty center"><b>WAITING FOR VERIFIED MARKET DATA</b><p>Predictions stay disabled until quote freshness, candle completeness, spread checks and model calibration pass.</p></div><div class="sectiongap list"><div class="listrow"><span>Market data feed</span><b>NOT CONNECTED</b></div><div class="listrow"><span>Data validation</span><b>PENDING</b></div><div class="listrow"><span>AI models</span><b>NOT TRAINED</b></div></div></div>
+  </div>
+ </section>
+
+ <section class="page" id="pairs">
+  <div class="pagehead"><div><div class="eyebrow">MARKET WATCHLIST</div><h2>Seven Major Currency Pairs</h2><p class="sub">Quotes remain blank until a verified provider is connected.</p></div><span class="badge off">NO LIVE FEED</span></div>
+  <div class="card"><div class="pairs" id="allPairs"></div></div>
+  <div class="card sectiongap"><div class="cardhead"><h3>Pair coverage</h3><span class="tiny">Major FX universe</span></div><div class="tablewrap"><table><thead><tr><th>Pair</th><th>Base</th><th>Quote</th><th>Market Price</th><th>Data Status</th></tr></thead><tbody id="pairRows"></tbody></table></div></div>
+ </section>
+
+ <section class="page" id="predict">
+  <div class="pagehead"><div><div class="eyebrow">PREDICTION WORKSPACE</div><h2>AI Direction Forecast</h2><p class="sub">No forecast is generated without verified live and historical data.</p></div><span class="badge">WAIT MODE</span></div>
+  <div class="grid twocol">
+   <div class="card"><div class="cardhead"><h3>Prediction parameters</h3><span class="badge off">DATA UNAVAILABLE</span></div><div class="fields"><div class="field"><small>SELECTED PAIR</small><b>EUR / USD</b></div><div class="field"><small>TIMEFRAME</small><b>5M · 15M · 30M · 1H · 4H</b></div><div class="field"><small>DIRECTION</small><b>WAIT</b></div><div class="field"><small>CONFIDENCE</small><b>—</b></div><div class="field"><small>ENTRY ZONE</small><b>—</b></div><div class="field"><small>STOP LOSS</small><b>—</b></div><div class="field"><small>TARGET 1</small><b>—</b></div><div class="field"><small>TARGET 2</small><b>—</b></div></div><div class="rule"><strong>TRADE GATE:</strong> A signal requires independently validated probability of at least 68%, complete data and aligned directional sources. Otherwise WAIT.</div></div>
+   <div class="card"><div class="cardhead"><h3>Directional Source Agreement</h3><span class="badge off">NOT VERIFIED</span></div><div class="list"><div class="listrow"><span>Price action</span><b>—</b></div><div class="listrow"><span>Technical indicators</span><b>—</b></div><div class="listrow"><span>Trend / structure</span><b>—</b></div><div class="listrow"><span>Volatility regime</span><b>—</b></div><div class="listrow"><span>Macro / event context</span><b>—</b></div></div><div class="rule">All verified directional sources must agree. Mixed or missing evidence means <strong>WAIT / NO SIGNAL.</strong></div></div>
+  </div>
+  <div class="card sectiongap"><div class="cardhead"><h3>Multi-Timeframe Top-Down Confirmation</h3><span class="tiny">4H → 5M</span></div><div class="flow"><div><b>4H</b><small>MACRO BIAS</small></div><div><b>1H</b><small>DIRECTION</small></div><div><b>30M</b><small>SETUP</small></div><div><b>15M</b><small>CONFIRM</small></div><div><b>5M</b><small>ENTRY TIME</small></div></div><div class="rule">A higher-timeframe conflict blocks lower-timeframe entry signals.</div></div>
+ </section>
+
+ <section class="page" id="strategy">
+  <div class="pagehead"><div><div class="eyebrow">MODEL INTELLIGENCE</div><h2>Strategy & AI Model Lab</h2><p class="sub">Planned model stack — not trained or active yet.</p></div><span class="badge off">NOT TRAINED</span></div>
+  <div class="grid modelgrid">
+   <div class="model"><b>LIGHTGBM</b><p>Structured feature-based direction classification.</p></div>
+   <div class="model"><b>XGBOOST</b><p>Non-linear market pattern and feature interactions.</p></div>
+   <div class="model"><b>LSTM</b><p>Sequential candle and price behaviour modelling.</p></div>
+   <div class="model"><b>TCN / CNN</b><p>Temporal and candle-structure pattern extraction.</p></div>
+   <div class="model"><b>REGIME DETECTION</b><p>Trending, ranging and volatile market states.</p></div>
+   <div class="model"><b>ENSEMBLE ENGINE</b><p>Combines validated model outputs and calibration.</p></div>
+  </div>
+  <div class="card sectiongap"><div class="cardhead"><h3>Technical Analysis Toolkit</h3><span class="badge off">INPUTS PENDING</span></div><div class="chips"><span>EMA 9 / 21 / 50 / 200</span><span>RSI 14</span><span>MACD</span><span>ATR</span><span>ADX</span><span>BOLLINGER BANDS</span><span>VWAP</span><span>SUPPORT / RESISTANCE</span><span>HH / HL / LH / LL</span><span>BREAKOUT FILTER</span></div></div>
+ </section>
+
+ <section class="page" id="history">
+  <div class="pagehead"><div><div class="eyebrow">AUDITABLE FORECAST LOG</div><h2>Prediction History</h2><p class="sub">Every forecast will be timestamped and retained without overwriting the original.</p></div><span class="badge off">NO RECORDS YET</span></div>
+  <div class="card"><div class="empty center"><b>NO PREDICTIONS RECORDED</b><p>History will appear after verified data and a validated prediction engine are connected.</p></div></div>
+ </section>
+
+ <section class="page" id="accuracy">
+  <div class="pagehead"><div><div class="eyebrow">MODEL PERFORMANCE</div><h2>Accuracy & Validation</h2><p class="sub">No accuracy percentage will be displayed without test evidence.</p></div><span class="badge off">NOT VALIDATED</span></div>
+  <div class="grid stats">
+   <div class="card"><div class="statlabel">DIRECTIONAL ACCURACY</div><div class="statval">—</div><div class="statnote">Out-of-sample only</div></div>
+   <div class="card"><div class="statlabel">PRECISION / RECALL</div><div class="statval">—</div><div class="statnote">Per pair and timeframe</div></div>
+   <div class="card"><div class="statlabel">BRIER SCORE</div><div class="statval">—</div><div class="statnote">Probability quality</div></div>
+   <div class="card"><div class="statlabel">MFE / MAE</div><div class="statval">—</div><div class="statnote">Favourable / adverse excursion</div></div>
+  </div>
+  <div class="card"><div class="cardhead"><h3>Required validation process</h3></div><div class="list"><div class="listrow"><span>Historical backtest</span><b>NOT STARTED</b></div><div class="listrow"><span>Walk-forward test</span><b>NOT STARTED</b></div><div class="listrow"><span>Probability calibration</span><b>NOT STARTED</b></div><div class="listrow"><span>Live shadow testing</span><b>NOT STARTED</b></div></div><div class="rule">A displayed 68% probability must be supported by calibration and forward-test evidence. No inflated confidence.</div></div>
+ </section>
+
+ <section class="page" id="data">
+  <div class="pagehead"><div><div class="eyebrow">INFRASTRUCTURE HEALTH</div><h2>Market Data Health</h2><p class="sub">Feed status and quality controls for reliable analysis.</p></div><span class="badge off">OFFLINE</span></div>
+  <div class="grid twocol">
+   <div class="card"><div class="cardhead"><h3>Provider connection</h3><span class="badge off">NOT CONFIGURED</span></div><div class="list"><div class="listrow"><span>Provider</span><b>NOT SELECTED</b></div><div class="listrow"><span>Last quote</span><b>—</b></div><div class="listrow"><span>WebSocket</span><b>DISCONNECTED</b></div><div class="listrow"><span>Historical candles</span><b>NOT LOADED</b></div><div class="listrow"><span>Spread verification</span><b>NOT AVAILABLE</b></div></div></div>
+   <div class="card"><div class="cardhead"><h3>Data quality gates</h3></div><div class="list"><div class="listrow"><span>Freshness</span><b>WAITING</b></div><div class="listrow"><span>Missing candles</span><b>WAITING</b></div><div class="listrow"><span>Outlier checks</span><b>WAITING</b></div><div class="listrow"><span>Timestamp consistency</span><b>WAITING</b></div><div class="listrow"><span>Pair coverage</span><b>WAITING</b></div></div></div>
+  </div>
+ </section>
+
+ <section class="page" id="settings">
+  <div class="pagehead"><div><div class="eyebrow">WORKSPACE CONFIGURATION</div><h2>Settings</h2><p class="sub">Prediction-only operating mode and system safety preferences.</p></div></div>
+  <div class="card"><div class="list"><div class="listrow"><span>Product mode</span><b>PREDICTION ONLY</b></div><div class="listrow"><span>Market universe</span><b>7 MAJOR PAIRS</b></div><div class="listrow"><span>Timeframes</span><b>5M / 15M / 30M / 1H / 4H</b></div><div class="listrow"><span>Minimum probability gate</span><b>68% · VALIDATION REQUIRED</b></div><div class="listrow"><span>Broker order execution</span><b>DISABLED</b></div><div class="listrow"><span>Unverified data fallback</span><b>WAIT / NO SIGNAL</b></div><div class="listrow"><span>Brand theme</span><b>NAVY BLUE + METALLIC GOLD</b></div></div></div>
+ </section>
+
+ <p class="foot">PARTHAVI FOREX TRADE DESK PRO 2.0 · Independent product · Prediction-only · Preview build. Not financial advice. No live market feed connected.</p>
+</main>
+</div>
+<nav class="mobilebar">
+ <button class="active" data-page="home"><span>▦</span>Home</button>
+ <button data-page="pairs"><span>⇄</span>Pairs</button>
+ <button data-page="predict"><span>◉</span>Predict</button>
+ <button data-page="history"><span>◷</span>History</button>
+ <button data-page="settings"><span>⚙</span>Settings</button>
+</nav>
+<script>
+(function(){
+ var names={home:"Overview",pairs:"Major Pairs",predict:"AI Prediction",strategy:"Strategy & Models",history:"Prediction History",accuracy:"Accuracy & Results",data:"Data Health",settings:"Settings"};
+ var nav=[].slice.call(document.querySelectorAll("[data-page]"));
+ function show(id){
+  if(!names[id])return;
+  document.querySelectorAll(".page").forEach(function(el){el.classList.toggle("active",el.id===id)});
+  nav.forEach(function(el){el.classList.toggle("active",el.getAttribute("data-page")===id)});
+  document.getElementById("crumb").textContent=names[id];
+  window.scrollTo({top:0,behavior:"smooth"});
+ }
+ nav.forEach(function(el){el.addEventListener("click",function(){show(el.getAttribute("data-page"))})});
+ document.querySelectorAll("[data-goto]").forEach(function(el){el.addEventListener("click",function(){show(el.getAttribute("data-goto"))})});
+ var pairs=[["EUR/USD","Euro / US Dollar","EUR","USD"],["GBP/USD","British Pound / US Dollar","GBP","USD"],["USD/JPY","US Dollar / Japanese Yen","USD","JPY"],["USD/CHF","US Dollar / Swiss Franc","USD","CHF"],["AUD/USD","Australian Dollar / US Dollar","AUD","USD"],["NZD/USD","New Zealand Dollar / US Dollar","NZD","USD"],["USD/CAD","US Dollar / Canadian Dollar","USD","CAD"]];
+ function card(p){return '<button class="pair" type="button"><b>'+p[0]+'</b><small>'+p[1]+'</small><strong>— — —</strong><em>WAITING FOR VERIFIED QUOTE</em></button>'}
+ document.getElementById("homePairs").innerHTML=pairs.slice(0,4).map(card).join("");
+ document.getElementById("allPairs").innerHTML=pairs.map(card).join("");
+ document.getElementById("pairRows").innerHTML=pairs.map(function(p){return '<tr><td><strong>'+p[0]+'</strong></td><td>'+p[2]+'</td><td>'+p[3]+'</td><td>—</td><td><span class="badge off">NOT CONNECTED</span></td></tr>'}).join("");
+})();
+</script>
+</body>
+</html>
