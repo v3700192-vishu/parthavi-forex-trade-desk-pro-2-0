@@ -302,6 +302,16 @@ table .blank,.blank{color:#bdabb2!important}
 @media(max-width:1250px){#liveStats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){#liveStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+
+.news-feed{display:grid;gap:9px}
+.news-item{padding:10px 11px;border:1px solid rgba(255,213,46,.16);border-radius:10px;background:rgba(8,2,5,.24)}
+.news-item a{display:block;color:#fff0a1;font-size:10px;font-weight:850;line-height:1.45}
+.news-item p{margin:5px 0 0;color:#cdbdc3;font-size:8px;line-height:1.55}
+.news-meta{display:flex;gap:8px;flex-wrap:wrap;color:#d4bd60;font-size:7px;margin-top:5px;letter-spacing:.04em}
+.news-status-fresh{color:#69e0aa!important}
+.calendar-high{color:#ff9b9f!important}
+.calendar-medium{color:#ffdf54!important}
+
 </style>
 </head>
 <body>
@@ -435,6 +445,11 @@ table .blank,.blank{color:#bdabb2!important}
    <div class="fund"><small>NEWS DIRECTION</small><b>—</b><p>Verified pair-specific news</p></div>
   </div>
  </div>
+ <div class="card section" id="marketNewsCard">
+  <div class="cardhead"><h3>Latest Market News</h3><span class="tag muted" id="marketNewsStatus">SOURCE CONNECTING</span></div>
+  <div id="marketNewsFeed" class="news-feed"><div class="notice">Market headlines will appear when the upstream news feed responds.</div></div>
+  <div class="notice" style="margin-top:10px">News is context only. Headlines are not scored as a bullish or bearish signal without verified event analysis.</div>
+ </div>
  <div class="grid two section">
   <div class="card"><div class="cardhead"><h3>Fundamental Source Agreement</h3><span class="tag muted">AWAITING SOURCES</span></div><div class="list"><div class="listrow"><span>Central bank policy</span><b>—</b></div><div class="listrow"><span>Inflation & employment</span><b>—</b></div><div class="listrow"><span>Growth / GDP</span><b>—</b></div><div class="listrow"><span>Geopolitical / global risk</span><b>—</b></div><div class="listrow"><span>Pair-specific news</span><b>—</b></div></div></div>
   <div class="card"><div class="cardhead"><h3>Currency Strength Board</h3><span class="tag muted">ALL 8 CURRENCIES</span></div><div class="heat"><div><b>USD</b><span>—</span></div><div><b>EUR</b><span>—</span></div><div><b>GBP</b><span>—</span></div><div><b>JPY</b><span>—</span></div><div><b>CHF</b><span>—</span></div><div><b>AUD</b><span>—</span></div><div><b>NZD</b><span>—</span></div><div><b>CAD</b><span>—</span></div></div></div>
@@ -442,8 +457,8 @@ table .blank,.blank{color:#bdabb2!important}
 </section>
 
 <section class="section" id="calendar">
- <div class="sectionhead"><div><div class="eyebrow">SCHEDULED MARKET EVENTS</div><h2>Economic Calendar</h2><p>Event time, currency impact, forecast, previous and actual release.</p></div><span class="tag muted">CALENDAR SOURCE REQUIRED</span></div>
- <div class="card"><div class="tablewrap"><table><thead><tr><th>DATE / TIME (UTC)</th><th>CURRENCY</th><th>EVENT</th><th>IMPACT</th><th>FORECAST</th><th>PREVIOUS</th><th>ACTUAL</th></tr></thead><tbody><tr><td colspan="7" class="blank" style="text-align:center;padding:24px">Economic events will appear when a verified calendar source is connected.</td></tr></tbody></table></div></div>
+ <div class="sectionhead"><div><div class="eyebrow">SCHEDULED MARKET EVENTS</div><h2>Economic Calendar</h2><p>Event time, currency impact, forecast, previous and actual release.</p></div><span class="tag muted" id="calendarStatus">SOURCE CONNECTING</span></div>
+ <div class="card"><div class="tablewrap"><table><thead><tr><th>DATE / TIME (UTC)</th><th>CURRENCY</th><th>EVENT</th><th>IMPACT</th><th>FORECAST</th><th>PREVIOUS</th><th>ACTUAL</th></tr></thead><tbody id="economicCalendarBody"><tr><td colspan="7" class="blank" style="text-align:center;padding:24px">Waiting for the calendar feed…</td></tr></tbody></table></div></div>
 </section>
 
 <section class="section" id="volatility">
@@ -730,13 +745,92 @@ table .blank,.blank{color:#bdabb2!important}
    return null;
   }
  }
+
+ function renderCalendarValue(value,event){
+  if(value===null||value===undefined||value==='')return '—';
+  const n=Number(value);if(!Number.isFinite(n))return '—';
+  const formatted=n.toLocaleString('en-US',{maximumFractionDigits:4});
+  if(event.multiplier==='thousands')return formatted+' K';
+  if(event.multiplier==='millions')return formatted+' M';
+  return formatted+(event.unit==='percent'?'%':event.unit?' '+event.unit:'');
+ }
+ function utcEventTime(event){
+  const d=new Date(event.time);
+  if(!Number.isFinite(d.getTime()))return '—';
+  const date=d.toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'});
+  if(event.timeMode!=='exact')return date+' · '+String(event.timeMode||'tentative').toUpperCase();
+  return date+' '+d.toLocaleTimeString('en-GB',{timeZone:'UTC',hour:'2-digit',minute:'2-digit',hour12:false})+' UTC';
+ }
+ async function loadCalendar(){
+  const body=$('#economicCalendarBody'),status=$('#calendarStatus');
+  if(!body)return;
+  try{
+   const data=await requestJson('/api/forex/calendar',25000);
+   body.innerHTML='';
+   if(!data.items.length){
+    const tr=document.createElement('tr'),td=document.createElement('td');
+    td.colSpan=7;td.className='blank';td.style.textAlign='center';td.style.padding='24px';
+    td.textContent='No upcoming events returned by the source for this window.';
+    tr.appendChild(td);body.appendChild(tr);
+   }else{
+    data.items.slice(0,80).forEach(event=>{
+     const tr=document.createElement('tr');
+     const values=[utcEventTime(event),event.currency||event.countryCode||'—',event.name||'—',
+      String(event.importance||'unknown').toUpperCase(),
+      renderCalendarValue(event.forecast,event),renderCalendarValue(event.previous,event),renderCalendarValue(event.actual,event)];
+     values.forEach((value,index)=>{
+      const td=document.createElement('td');td.textContent=value;
+      if(index===3){td.className=event.importance==='high'?'calendar-high':event.importance==='medium'?'calendar-medium':'';}
+      tr.appendChild(td);
+     });
+     body.appendChild(tr);
+    });
+   }
+   if(status){status.textContent='BIQUOTE · '+data.items.length+' EVENTS';status.className='tag muted';}
+  }catch(error){
+   body.innerHTML='';
+   const tr=document.createElement('tr'),td=document.createElement('td');
+   td.colSpan=7;td.className='blank';td.style.textAlign='center';td.style.padding='24px';
+   td.textContent='Calendar unavailable: '+String(error.message||'upstream_error');
+   tr.appendChild(td);body.appendChild(tr);
+   if(status)status.textContent='FEED UNAVAILABLE';
+  }
+ }
+ async function loadMarketNews(){
+  const feed=$('#marketNewsFeed'),status=$('#marketNewsStatus');
+  if(!feed)return;
+  try{
+   const data=await requestJson('/api/forex/news',20000);
+   feed.innerHTML='';
+   if(!data.items.length){
+    const p=document.createElement('div');p.className='notice';p.textContent='No market headlines are available from the source right now.';feed.appendChild(p);
+   }else{
+    data.items.slice(0,10).forEach(item=>{
+     const card=document.createElement('article');card.className='news-item';
+     const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=item.title;card.appendChild(link);
+     if(item.description){const desc=document.createElement('p');desc.textContent=item.description;card.appendChild(desc);}
+     const meta=document.createElement('div');meta.className='news-meta';
+     const publisher=document.createElement('span');publisher.textContent=item.publisher||'Unknown publisher';meta.appendChild(publisher);
+     const date=document.createElement('span');date.textContent=item.publishedDate?new Date(item.publishedDate).toLocaleString('en-GB',{timeZone:'UTC',dateStyle:'medium',timeStyle:'short'})+' UTC':'—';meta.appendChild(date);
+     card.appendChild(meta);feed.appendChild(card);
+    });
+   }
+   if(status){status.textContent='BIQUOTE · '+data.items.length+' HEADLINES';status.className='tag muted news-status-fresh';}
+  }catch(error){
+   feed.innerHTML='';
+   const p=document.createElement('div');p.className='notice';p.textContent='Market news unavailable: '+String(error.message||'upstream_error');feed.appendChild(p);
+   if(status)status.textContent='FEED UNAVAILABLE';
+  }
+ }
  async function loadWatchlist(){if(!apiReady)return;await Promise.all(PAIRS.map(pair=>loadQuote(pair,true)));}
  async function refreshSelected(){if(!apiReady)return;await Promise.all([loadQuote(pairNow(),false),loadCandles(pairNow(),tfNow())]);}
  async function init(){
   if(await getStatus()){
-   await Promise.all([loadWatchlist(),refreshSelected()]);
+   await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews()]);
   }
   setInterval(()=>{if(apiReady)loadQuote(pairNow(),false);},QUOTE_REFRESH_MS);
+  setInterval(()=>{if(apiReady)loadCalendar();},900000);
+  setInterval(()=>{if(apiReady)loadMarketNews();},300000);
   setInterval(()=>{if(apiReady)loadWatchlist();},WATCHLIST_REFRESH_MS);
   setInterval(()=>{if(apiReady)loadCandles(pairNow(),tfNow());},CANDLE_REFRESH_MS);
   setInterval(async()=>{if(!apiReady)await getStatus();},60000);
