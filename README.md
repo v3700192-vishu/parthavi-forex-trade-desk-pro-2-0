@@ -37,6 +37,12 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - No broker order execution is implemented.
 - EMA, RSI, MACD, ATR, Bollinger Bands and Wilder ADX 14 are computed from returned closed OHLC candles. Confirmed swing points, BOS/CHoCH, support/resistance, 20-bar breakout checks and ATR distance planning are displayed as analytical context only. Real traded FX volume is not inferred from tick volume.
 
+## Derived cross-pair analytics
+
+- Currency strength is a relative average contribution derived from the last up to 96 synchronized 15M closed-bar returns across the seven supported pairs. It is not a broad-market benchmark or a separate fundamental source.
+- The correlation matrix uses Pearson correlation on synchronized 15M log returns, with a minimum of 30 common returns and a maximum of 96. Misaligned or insufficient history leaves the matrix blank.
+- Both panels are historical context from the same indicative Biquote feed and cannot, by themselves, produce a trading signal.
+
 ## Validation
 
 `npm run check` validates the backend syntax and every inline browser JavaScript block. GitHub Actions runs this check on each push to `main` and on pull requests.
