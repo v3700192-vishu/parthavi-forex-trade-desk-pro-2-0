@@ -418,7 +418,7 @@ table .blank,.blank{color:#bdabb2!important}
   <div class="card indicator"><small>VWAP / VOLUME</small><b>—</b><em>Session reference where supported</em><span class="spark">▥</span></div>
  </div>
  <div class="grid row3 section">
-  <div class="card"><div class="cardhead"><h3>Market Structure</h3><span class="tag muted">PRICE ACTION</span></div><div class="fundgrid" style="grid-template-columns:1fr 1fr"><div class="fund"><small>STRUCTURE</small><b id="structureState">—</b><p>HH / HL / LH / LL</p></div><div class="fund"><small>SWING HIGH</small><b id="structureSwingHigh">—</b><p>Latest confirmed high</p></div><div class="fund"><small>SWING LOW</small><b id="structureSwingLow">—</b><p>Latest confirmed low</p></div><div class="fund"><small>BOS / CHoCH</small><b id="structureBreak">—</b><p>Confirmed close beyond swing</p></div></div></div>
+  <div class="card"><div class="cardhead"><h3>Market Structure</h3><span class="tag muted" id="structureDataState">WAITING FOR CANDLES</span></div><div class="fundgrid" style="grid-template-columns:1fr 1fr"><div class="fund"><small>STRUCTURE</small><b id="structureState">—</b><p>HH / HL / LH / LL</p></div><div class="fund"><small>SWING HIGH</small><b id="structureSwingHigh">—</b><p>Latest confirmed high</p></div><div class="fund"><small>SWING LOW</small><b id="structureSwingLow">—</b><p>Latest confirmed low</p></div><div class="fund"><small>BOS / CHoCH</small><b id="structureBreak">—</b><p>Confirmed close beyond swing</p></div></div></div>
   <div class="card"><div class="cardhead"><h3>Key Price Levels</h3><span class="tag muted">LEVELS</span></div><div class="fundgrid" style="grid-template-columns:1fr 1fr"><div class="fund"><small>RESISTANCE 1</small><b id="levelResistance1">—</b></div><div class="fund"><small>RESISTANCE 2</small><b id="levelResistance2">—</b></div><div class="fund"><small>SUPPORT 1</small><b id="levelSupport1">—</b></div><div class="fund"><small>SUPPORT 2</small><b id="levelSupport2">—</b></div><div class="fund"><small>TF PIVOT</small><b id="levelPivot">—</b></div><div class="fund"><small>FIBONACCI 38 / 62</small><b id="levelFibonacci">—</b></div></div></div>
   <div class="card"><div class="cardhead"><h3>Pattern & Breakout Scan</h3><span class="tag muted">STRUCTURE SCAN</span></div><div class="list"><div class="listrow"><span>Range / breakout</span><b data-scan="range">—</b></div><div class="listrow"><span>False breakout filter</span><b data-scan="falseBreak">—</b></div><div class="listrow"><span>Support retest</span><b data-scan="retest">—</b></div><div class="listrow"><span>Candle confirmation</span><b data-scan="candle">—</b></div><div class="listrow"><span>Liquidity sweep</span><b data-scan="sweep">—</b></div></div></div>
  </div>
@@ -963,6 +963,7 @@ table .blank,.blank{color:#bdabb2!important}
    if(pair!==pairNow()||timeframe!==tfNow())return data;
    const candles=data.candles,last=candles[candles.length-1];
    currentCandles=candles;currentCandlesPair=pair;
+   const structureTag=$('#structureDataState');if(structureTag)structureTag.textContent=data.meta.freshness==='FRESH'?'FRESH CLOSED BARS':'HISTORICAL · STALE';
    renderChart(candles,pair);renderIndicators(candles,pair);renderMarketStructure(candles,pair);renderRiskPlanner(candles,pair);
    const quote=quoteStates.get(pair);
    if(data.meta.freshness==='FRESH'&&quote?.freshness==='FRESH'){
