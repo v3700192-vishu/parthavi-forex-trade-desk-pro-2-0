@@ -24,6 +24,9 @@ const INTERVALS = new Map([
 const CACHE_TTL_MS = 180000;
 const MAX_CALLS_PER_MINUTE = 8;
 const MAX_CALLS_PER_UTC_DAY = 760;
+const FRESHNESS_WINDOWS_SECONDS = new Map([
+  ['5M', 900], ['15M', 1800], ['30M', 2700], ['1H', 5400], ['4H', 16200]
+]);
 const cache = new Map();
 const usage = { minute: -1, minuteCalls: 0, day: '', dayCalls: 0 };
 
@@ -154,8 +157,9 @@ async function fetchCandles(pair, timeframe) {
       lastCandleAt: last.time,
       ageSeconds,
       candleCount: candles.length,
-      freshness: ageSeconds <= 1200 ? 'FRESH' : 'STALE',
-      timestampBasis: 'provider_candle_timestamp'
+      freshness: ageSeconds <= (FRESHNESS_WINDOWS_SECONDS.get(timeframe) || 1200) ? 'FRESH' : 'STALE',
+      freshnessWindowSeconds: FRESHNESS_WINDOWS_SECONDS.get(timeframe) || 1200,
+      timestampBasis: 'provider_candle_open_timestamp'
     },
     candles,
     fetchedAt: new Date().toISOString(),
