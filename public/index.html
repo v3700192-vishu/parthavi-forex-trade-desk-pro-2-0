@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#fff4c7">
+<meta name="theme-color" content="#100609">
 <meta name="description" content="PARTHAVI FOREX TRADE DESK PRO 2.0 — multi-pair Forex market analysis terminal.">
 <title>PARTHAVI FOREX TRADE DESK PRO 2.0</title>
 <link rel="icon" type="image/webp" href="./assets/parthavi-forex-logo.webp">
@@ -129,6 +129,125 @@ table td strong{color:#8c6800}
  .brandname{color:#725300}
 }
 
+
+/* RED-BLACK BACKGROUND WITH YELLOW + WHITE TYPOGRAPHY */
+:root{
+ --bg:#100609;--bg2:#18080d;--panel:#210b12;--panel2:#2a0d16;--panel3:#37111b;
+ --gold:#ffd52e;--gold2:#fff0a1;--gold3:#d49c00;--blue:#9eafc5;--blue2:#c4d0df;
+ --muted:#d0b8c0;--text:#fff8f4;--line:rgba(255,210,46,.27);--line2:rgba(255,240,245,.12);
+ --green:#55d6a0;--red:#ff7884;--amber:#ffd52e;--shadow:0 12px 32px rgba(0,0,0,.36)
+}
+body{color:#fff8f4;background:radial-gradient(1000px 520px at 75% -18%,rgba(125,20,43,.30),transparent 65%),radial-gradient(700px 420px at 0% 0%,rgba(84,9,24,.3),transparent 65%),linear-gradient(145deg,#100609 0%,#080306 55%,#18060c 100%)}
+.topbar{height:100px;background:rgba(12,4,7,.98);border-bottom:2px solid #e8bd20;box-shadow:0 8px 26px rgba(0,0,0,.38)}
+.brand{gap:12px;min-width:0;flex:1}
+.brand img{border:2px solid #f1c82b;box-shadow:0 0 0 4px rgba(255,213,46,.12),0 5px 22px rgba(0,0,0,.48)}
+.brandtext{min-width:0;max-width:100%}
+.brandname{display:block;font-size:clamp(11px,1.55vw,21px);letter-spacing:.025em;line-height:1.12;white-space:nowrap;color:#fff;font-weight:1000;text-shadow:0 1px 0 #000}
+.brandname span,.brandname strong{color:#fff;font-weight:1000}
+.brandname em{color:#ffd52e;font-style:normal;font-weight:1000}
+.brandtag{color:#e9dfe2}
+.statuspill{background:#1b0a10;border:1px solid rgba(255,213,46,.3);color:#fff2d4}
+.statusdot{background:#ffd52e;box-shadow:0 0 10px rgba(255,213,46,.55)}
+.modepill{background:#32101a;color:#ffe77a;border-color:#9b6d12}
+.shell{min-height:calc(100vh - 100px)}
+.sidebar{top:100px;height:calc(100vh - 100px);background:rgba(12,4,7,.96);border-right:1px solid rgba(255,213,46,.16)}
+.navcaption{color:#e4c75b}
+.nav a{color:#f3e8eb}
+.nav a b{color:#ffd52e}
+.nav a:hover,.nav a.active{color:#fff;background:linear-gradient(100deg,rgba(255,213,46,.16),rgba(118,13,36,.26));border-color:rgba(255,213,46,.38)}
+.sidefoot{border-color:rgba(255,213,46,.28);background:linear-gradient(145deg,rgba(111,13,33,.3),rgba(255,213,46,.05))}
+.sidefoot strong,.notice b{color:#ffdf54}
+.sidefoot p{color:#c9b8bd}
+.eyebrow{color:#ffd52e}
+.pagehead h1,.sectionhead h2,.cardhead h2,.cardhead h3{color:#fff}
+.pagehead p,.sectionhead p{color:#d0bfc5}
+.selectwrap select{background:#260c14;border:1px solid rgba(255,213,46,.5);color:#fff0a1}
+.selectwrap:after{color:#ffd52e}
+.tfbar{background:#16070c;border:1px solid rgba(255,213,46,.24)}
+.tfbar button{color:#d7c9cd}
+.tfbar button.active{color:#1b1000;background:linear-gradient(135deg,#fff09a,#edbd13);box-shadow:0 3px 12px rgba(255,194,0,.22)}
+.card{border-color:rgba(255,213,46,.2);background:linear-gradient(155deg,#260d15,#15070c);box-shadow:var(--shadow)}
+.stat{background:linear-gradient(155deg,#2a0e17,#16070c)}
+.stat:after{background:rgba(255,213,46,.08)}
+.statlabel{color:#d7c4ca}
+.statvalue{color:#ffdf54}
+.statnote{color:#bdaab1}
+.chartpanel{background:#1b080e}
+.charttop{border-bottom:1px solid rgba(255,213,46,.15)}
+.charttitle{color:#fff}
+.chartmeta{color:#c7b8bd}
+.tool{border-color:rgba(255,213,46,.26);color:#ffe77a;background:#2a0d16}
+.chartarea{background-color:#10060a;background-image:linear-gradient(rgba(255,213,46,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,213,46,.08) 1px,transparent 1px)}
+.chartarea:before{background:radial-gradient(ellipse at center,rgba(133,15,42,.2),transparent 62%)}
+.chartempty .charticon{color:#ffd52e}
+.chartempty strong{color:#ffe77a}
+.chartempty p{color:#cfbdc3}
+.chartfoot{background:#10060a;border-top:1px solid rgba(255,213,46,.14);color:#c5b2b9}
+.forecast{background:radial-gradient(ellipse at 90% 0%,rgba(255,213,46,.13),transparent 55%),linear-gradient(145deg,#35101a,#19070d);border-color:rgba(255,213,46,.48)}
+.forecast .eyebrow,.forecast .wait{color:#ffdc49}
+.forecastdesc{color:#f0e4e7}
+.forecastcell{border-color:rgba(255,213,46,.22);background:rgba(10,3,6,.45)}
+.forecastcell small{color:#d4c1c7}
+.forecastcell b{color:#fff0a1}
+.forecastnote{color:#cfbdc3}
+.tag{color:#ffe77a;border-color:rgba(255,213,46,.34);background:rgba(94,61,0,.24)}
+.tag.muted{color:#e5d9dd;border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.06)}
+.tag.green{color:#69e0aa;border-color:rgba(85,214,160,.3);background:rgba(35,130,91,.13)}
+table th{color:#dfd0d4;border-bottom-color:rgba(255,213,46,.22)}
+table td{color:#f0e7ea;border-bottom-color:rgba(255,255,255,.08)}
+table td strong{color:#ffdf54}
+.pairrow:hover,.pairrow.selected{background:rgba(255,213,46,.10)}
+.paircode{color:#fff0a1}
+.pairdesc{color:#c4b3ba}
+.statuscell{color:#ffdf54}
+.indicator{background:linear-gradient(145deg,#260d15,#16070c)}
+.indicator small{color:#dfcdd2}
+.indicator b{color:#ffdf54}
+.indicator em{color:#cbb9c0}
+.indicator .spark{color:#d8b735}
+.matrix td:first-child{color:#ffe77a}
+.tfstate{background:rgba(255,213,46,.07);border-color:rgba(255,213,46,.2);color:#f3df9a}
+.fund{border-color:rgba(255,213,46,.16);background:rgba(8,2,5,.28)}
+.fund small{color:#d7c4ca}
+.fund b{color:#ffdf54}
+.fund p{color:#c4b2b9}
+.source{border-color:rgba(255,213,46,.2);background:rgba(8,2,5,.3)}
+.source b{color:#fff}
+.source span{color:#c9b8bf}
+.heat div{border-color:rgba(255,213,46,.18);background:rgba(8,2,5,.3)}
+.heat b{color:#ffdf54}
+.heat span{color:#cdbbc2}
+.notice{border-color:rgba(255,213,46,.23);background:linear-gradient(100deg,rgba(106,13,34,.3),rgba(255,213,46,.05));color:#e4d6da}
+table .blank,.blank{color:#bdabb2!important}
+.bottomnav{background:rgba(12,4,7,.98);border-top:1px solid rgba(255,213,46,.28)}
+.bottomnav a{color:#d8cbd0}
+.bottomnav a b{color:#ffd52e}
+.bottomnav a.active{color:#ffeb8c}
+.foot{color:#b8a5ac}
+.listrow{border-bottom-color:rgba(255,255,255,.09);color:#eadfe2}
+.listrow b{color:#ffdf54}
+@media(min-width:701px) and (max-width:1050px){
+ .topbar{height:88px;padding:8px 15px}
+ .brand img{width:64px;height:64px;flex-basis:64px}
+ .shell{min-height:calc(100vh - 88px)}
+ .sidebar{top:88px;height:calc(100vh - 88px)}
+ .brandname{font-size:clamp(12px,1.9vw,18px)}
+}
+@media(max-width:700px){
+ .topbar{height:74px;padding:7px 10px;background:rgba(12,4,7,.99)}
+ .brand{gap:8px;flex:1;min-width:0}
+ .brand img{width:53px;height:53px;flex-basis:53px}
+ .brandname{font-size:clamp(8px,2.85vw,12px);letter-spacing:0;white-space:nowrap}
+ .topright{flex:0 0 auto}
+ .topright .modepill{display:none}
+ .topright .statuspill{font-size:0;width:19px;height:19px;padding:0;justify-content:center}
+ .topright .statusdot{margin:0}
+}
+@media(max-width:380px){
+ .brand img{width:46px;height:46px;flex-basis:46px}
+ .brandname{font-size:8px;letter-spacing:-.025em}
+}
+
 </style>
 </head>
 <body>
@@ -136,9 +255,7 @@ table td strong{color:#8c6800}
  <div class="brand">
   <img src="./assets/parthavi-forex-logo.webp" alt="PARTHAVI Forex bull and bear emblem">
   <div class="brandtext">
-   <div class="brandname">PARTHAVI <em>FOREX</em></div>
-   <div class="brandtitle">TRADE DESK PRO 2.0</div>
-   <div class="brandtag">MARKET ANALYSIS TERMINAL</div>
+   <div class="brandname"><span>PARTHAVI</span> <em>FOREX</em> <strong>TRADE DESK PRO 2.0</strong></div>
   </div>
  </div>
  <div class="topright">
