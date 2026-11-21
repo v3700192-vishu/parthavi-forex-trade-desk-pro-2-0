@@ -14,6 +14,56 @@
 @media(max-width:1050px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.pairs{grid-template-columns:repeat(2,minmax(0,1fr))}.twocol{grid-template-columns:1fr}.brandhero{grid-template-columns:minmax(0,1fr) 175px}}
 @media(max-width:700px){.app{display:block}.sidebar{display:none}.main{padding:14px 13px 93px}.topbar{margin-bottom:13px}.crumb{font-size:8px}.topright .optional{display:none}.brandhero{grid-template-columns:1fr;padding:17px 15px;gap:14px;text-align:center;border-radius:18px}.hero-logo{grid-row:1;width:150px;justify-self:center}.brandhero h1{font-size:24px}.brandhero p{font-size:10px}.hero-kicker{font-size:8px}.chips{justify-content:center}.pagehead{align-items:start;flex-direction:column}.pagehead h2{font-size:22px}.stats{gap:9px}.card{padding:13px;border-radius:15px}.statval{font-size:19px}.flow{gap:4px}.flow div{padding:9px 3px}.flow b{font-size:15px}.flow small{font-size:7px}.modelgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.mobilebar{position:fixed;z-index:10;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(5,1fr);padding:7px 4px calc(7px + env(safe-area-inset-bottom));background:rgba(4,16,36,.97);border-top:1px solid rgba(232,192,108,.25);backdrop-filter:blur(15px)}.mobilebar button{border:0;background:none;color:#8ea5c7;font-size:8px;padding:5px 1px}.mobilebar button span{display:block;color:var(--gold);font-size:17px;margin-bottom:2px}.mobilebar button.active{color:#ffdfa0}.foot{padding-bottom:12px}}
 @media(max-width:380px){.stats{grid-template-columns:1fr 1fr}.modelgrid{grid-template-columns:1fr}.flow small{display:none}.pair strong{font-size:12px}}
+
+/* Brand header follows the established PARTHAVI top-of-screen identity. */
+.topbar{position:sticky;top:0;z-index:25;min-height:78px;padding:10px 13px;background:rgba(5,18,39,.96);backdrop-filter:blur(18px);box-shadow:0 12px 28px rgba(0,0,0,.18)}
+.brandhead{display:flex;align-items:center;gap:12px;min-width:0}
+.brandhead>img{width:58px;height:58px;flex:0 0 58px;object-fit:cover;object-position:center;border-radius:15px;border:1px solid rgba(232,192,108,.65);box-shadow:0 0 0 4px rgba(232,192,108,.07),0 5px 22px rgba(33,96,166,.2)}
+.brandcopy{min-width:0}
+.brandtitle{font-size:19px;line-height:1.05;font-weight:1000;letter-spacing:.045em;color:#f5f7fc;white-space:nowrap}
+.brandtitle span{color:var(--gold);text-shadow:0 0 18px rgba(232,192,108,.2)}
+.brand-subtitle{font-size:8px;line-height:1.3;font-weight:900;letter-spacing:.16em;color:#b7c8df;margin-top:5px}
+.brandcopy .crumb{font-size:9px;margin-top:4px}
+@media (min-width:701px) and (max-width:1100px){
+ .app{grid-template-columns:76px minmax(0,1fr)}
+ .sidebar{width:76px;padding:15px 8px;align-items:center}
+ .sidebar .brand{padding:3px 0 18px;justify-content:center}
+ .sidebar .brand img{width:48px;height:48px}
+ .sidebar .brand>div:not(:first-child){display:none}
+ .sidebar .navlabel{font-size:0;padding:8px 0}
+ .sidebar .nav{width:100%;justify-items:center}
+ .sidebar .nav button{width:52px;min-height:48px;padding:9px 4px;justify-content:center;font-size:0}
+ .sidebar .nav button .ico{font-size:18px;width:auto}
+ .sidebar .sidebottom{display:none}
+ .main{padding:15px 16px 52px}
+ .topbar{min-height:76px}
+ .brandhead>img{width:54px;height:54px;flex-basis:54px}
+ .brandtitle{font-size:17px}
+ .brand-subtitle{font-size:7px;letter-spacing:.12em}
+ .brandhero{grid-template-columns:minmax(0,1fr) 150px;padding:19px}
+ .brandhero h1{font-size:clamp(23px,2.7vw,31px)}
+ .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .pairs{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .modelgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:700px){
+ .topbar{top:0;min-height:66px;padding:8px 9px;border-radius:13px;gap:8px}
+ .brandhead{gap:9px}
+ .brandhead>img{width:45px;height:45px;flex-basis:45px;border-radius:12px}
+ .brandtitle{font-size:14px;letter-spacing:.025em}
+ .brand-subtitle{font-size:6px;letter-spacing:.075em;margin-top:4px}
+ .brandcopy .crumb{font-size:8px;margin-top:3px}
+ .topright{gap:4px}
+ .topright .pill{font-size:7px;padding:5px 7px}
+ .topright .optional{display:none}
+}
+@media (max-width:380px){
+ .brandhead>img{width:40px;height:40px;flex-basis:40px}
+ .brandtitle{font-size:12px}
+ .brand-subtitle{font-size:5px}
+ .topright .preview{font-size:6px;padding:4px 5px}
+}
+
 </style>
 </head>
 <body>
@@ -34,7 +84,17 @@
  <div class="sidebottom"><b>● PREVIEW · NOT LIVE</b><p>Independent Forex workspace. Verified provider connection is not configured yet.</p></div>
 </aside>
 <main class="main">
- <header class="topbar"><div class="crumb">PARTHAVI FOREX TRADE DESK PRO 2.0 / <b id="crumb">Overview</b></div><div class="topright"><span class="pill preview">● PREVIEW · NOT LIVE</span><span class="pill optional">PREDICTION ONLY</span><img class="avatar" src="./assets/parthavi-forex-logo.webp" alt="Logo"></div></header>
+ <header class="topbar">
+  <div class="brandhead">
+    <img src="./assets/parthavi-forex-logo.webp" alt="PARTHAVI Forex crowned bull and bear logo">
+    <div class="brandcopy">
+      <div class="brandtitle">PARTHAVI <span>FOREX</span></div>
+      <div class="brand-subtitle">TRADE DESK PRO 2.0 · AI POWERED FOREX INTELLIGENCE</div>
+      <div class="crumb">WORKSPACE / <b id="crumb">Overview</b></div>
+    </div>
+  </div>
+  <div class="topright"><span class="pill preview">● PREVIEW · NOT LIVE</span><span class="pill optional">PREDICTION ONLY</span></div>
+</header>
 
  <section class="page active" id="home">
   <div class="brandhero">
