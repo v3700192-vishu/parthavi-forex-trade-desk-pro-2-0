@@ -294,6 +294,25 @@ const server=http.createServer(async(req,res)=>{
   }
   return respond(res,404,{ok:false,error:'not_found'});
 });
+async function crossPairHistorySelfCheck() {
+  const results = await Promise.allSettled([...PAIRS].map(pair => getCandles(pair,'15M')));
+  let common = null;
+  let successful = 0;
+  results.forEach((result,index) => {
+    const pair=[...PAIRS][index];
+    if(result.status!=='fulfilled') {
+      console.log('[CROSS_PAIR_HISTORY] '+pair+'=FAILED reason='+safeError(result.reason));
+      return;
+    }
+    successful += 1;
+    const candles=result.value.candles;
+    const timestamps=new Set(candles.map(c=>c.timestamp));
+    common=common===null?timestamps:new Set([...common].filter(t=>timestamps.has(t)));
+    console.log('[CROSS_PAIR_HISTORY] '+pair+'=OK bars='+candles.length+' freshness='+result.value.meta.freshness);
+  });
+  const commonBars=common?common.size:0;
+  console.log('[CROSS_PAIR_HISTORY] successfulPairs='+successful+'/7 commonClosedBars='+commonBars+' correlationReady='+(successful===7&&commonBars>=31));
+}
 async function upstreamSelfCheck() {
   const checks = [
     ['EURUSD quote', () => getQuote('EUR/USD')],
@@ -317,6 +336,7 @@ async function upstreamSelfCheck() {
       console.log('[UPSTREAM_CHECK] '+label+'=OK items='+value.items.length);
     }
   });
+  await crossPairHistorySelfCheck();
 }
 
 server.listen(PORT,'0.0.0.0',()=>{
