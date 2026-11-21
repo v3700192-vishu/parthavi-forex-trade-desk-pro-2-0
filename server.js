@@ -169,7 +169,7 @@ async function getEcbReferenceRates() {
     const date=String(row.date||'').slice(0,10);
     const quote=String(row.quote||'').toUpperCase();
     const rate=Number(row.rate);
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
        !REFERENCE_CURRENCIES.includes(quote) || !Number.isFinite(rate) || rate<=0) return;
     if(!byDate.has(date)) byDate.set(date,{});
     byDate.get(date)[quote]=rate;
