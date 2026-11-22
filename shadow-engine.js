@@ -154,6 +154,7 @@ function wilsonLowerBound(successes, total, z = 1.96) {
 function walkForward(datasets, horizonBars = HORIZON_BARS) {
   const byPair = [];
   let evaluated = 0, correct = 0, bullish = 0, bearish = 0;
+  let actualBullish = 0, actualBearish = 0, trueBullish = 0, trueBearish = 0;
   let firstForecastAt = null, lastForecastAt = null;
   for (const dataset of datasets) {
     const candles = Array.isArray(dataset.candles) ? dataset.candles : [];
@@ -168,8 +169,14 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
       const isCorrect = actual === prediction.direction;
       pairEvaluated++; evaluated++;
       if (isCorrect) { pairCorrect++; correct++; }
-      if (prediction.direction === 'BULLISH') { pairBullish++; bullish++; }
-      else { pairBearish++; bearish++; }
+      if (actual === 'BULLISH') actualBullish++; else actualBearish++;
+      if (prediction.direction === 'BULLISH') {
+        pairBullish++; bullish++;
+        if (actual === 'BULLISH') trueBullish++;
+      } else {
+        pairBearish++; bearish++;
+        if (actual === 'BEARISH') trueBearish++;
+      }
       const stamp = candles[i].time || new Date(candles[i].timestamp).toISOString();
       if (!firstForecastAt || stamp < firstForecastAt) firstForecastAt = stamp;
       if (!lastForecastAt || stamp > lastForecastAt) lastForecastAt = stamp;
@@ -185,6 +192,12 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
   }
   const accuracy = evaluated ? correct / evaluated : null;
   const lower95 = wilsonLowerBound(correct, evaluated);
+  const bullishRecall = actualBullish ? trueBullish / actualBullish : null;
+  const bearishRecall = actualBearish ? trueBearish / actualBearish : null;
+  const balancedAccuracy = bullishRecall !== null && bearishRecall !== null
+    ? (bullishRecall + bearishRecall) / 2 : null;
+  const majorityClassBaseline = evaluated
+    ? Math.max(actualBullish, actualBearish) / evaluated : null;
   const accuracyScreenPassed = evaluated >= MIN_VALIDATION_SAMPLES &&
     accuracy !== null && accuracy >= VALIDATED_ACCURACY_GATE;
   return {
@@ -192,7 +205,9 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
     target: 'direction of close after next 3 completed candles',
     horizonBars,
     evaluated, correct, incorrect: evaluated - correct,
-    bullish, bearish, accuracy, lower95,
+    bullish, bearish, actualBullish, actualBearish,
+    bullishRecall, bearishRecall, balancedAccuracy, majorityClassBaseline,
+    accuracy, lower95,
     firstForecastAt, lastForecastAt,
     minimumSamples: MIN_VALIDATION_SAMPLES,
     accuracyScreen: VALIDATED_ACCURACY_GATE,
