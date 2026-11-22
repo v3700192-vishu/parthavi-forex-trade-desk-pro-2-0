@@ -5,8 +5,9 @@ const { analyseDirection, walkForward, wilsonLowerBound } = require('../shadow-e
 function makeTrendBars(count = 240, direction = 1) {
   const bars = [];
   for (let i = 0; i < count; i++) {
-    const close = 1.05 + direction * i * 0.0002 + Math.sin(i / 5) * 0.00001;
-    const open = close - direction * 0.00002;
+    const acceleratingMove = i * 0.0001 + i * i * 0.0000005;
+    const close = direction > 0 ? 1.05 + acceleratingMove : 1.25 - acceleratingMove;
+    const open = close - direction * 0.00004;
     bars.push({
       time: new Date(Date.UTC(2026, 0, 1) + i * 900000).toISOString(),
       timestamp: Date.UTC(2026, 0, 1) + i * 900000,
