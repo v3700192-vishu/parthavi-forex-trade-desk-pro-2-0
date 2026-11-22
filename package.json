@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node scripts/check-inline-scripts.cjs"
+    "check": "node --check server.js && node --check shadow-engine.js && node scripts/check-inline-scripts.cjs"
   },
   "engines": {
     "node": ">=20"
