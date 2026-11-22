@@ -551,12 +551,12 @@ body{color:#fff!important}
    <div class="chartfoot"><span>SOURCE: BIQUOTE · INDICATIVE</span><span>LAST CLOSED BAR: —</span><span>TIMEZONE: UTC</span></div>
   </article>
   <article class="card forecast" id="forecast">
-   <div class="forecasttop"><div class="eyebrow">AI DIRECTION ENGINE</div><span class="tag">68% VALIDATED GATE</span></div>
-   <div class="wait">WAIT</div><div class="forecastdesc">No trade direction until evidence is complete.</div>
+   <div class="forecasttop"><div class="eyebrow">AI DIRECTION ENGINE</div><span class="tag">68% CALIBRATED-PROBABILITY GATE</span></div>
+   <div class="wait">WAIT</div><div class="forecastdesc">No live trade signal. Shadow research runs separately.</div>
    <div class="forecastgrid">
-    <div class="forecastcell"><small>CONFIDENCE</small><b>—</b></div><div class="forecastcell"><small>MODEL AGREEMENT</small><b>—</b></div>
-    <div class="forecastcell"><small>ENTRY ZONE</small><b>—</b></div><div class="forecastcell"><small>STOP LOSS</small><b>—</b></div>
-    <div class="forecastcell"><small>TARGET 1</small><b>—</b></div><div class="forecastcell"><small>TARGET 2</small><b>—</b></div>
+    <div class="forecastcell"><small>CALIBRATED PROBABILITY</small><b>NOT AVAILABLE</b></div><div class="forecastcell"><small>MODEL AGREEMENT</small><b>WAIT</b></div>
+    <div class="forecastcell"><small>ENTRY ZONE</small><b>NOT GENERATED</b></div><div class="forecastcell"><small>STOP LOSS</small><b>NOT GENERATED</b></div>
+    <div class="forecastcell"><small>TARGET 1</small><b>NOT GENERATED</b></div><div class="forecastcell"><small>TARGET 2</small><b>NOT GENERATED</b></div>
    </div>
    <div class="forecastnote">Final output requires fresh quotes, completed candles, aligned higher-timeframe bias, source agreement and calibrated out-of-sample probability. Missing or mixed evidence = WAIT.</div>
    <div id="shadowEnginePanel" style="margin-top:13px;padding-top:12px;border-top:1px solid rgba(255,213,46,.2)">
@@ -566,7 +566,7 @@ body{color:#fff!important}
     <div class="forecastgrid" style="margin-top:9px">
      <div class="forecastcell"><small>WALK-FORWARD SAMPLE</small><b id="shadowSample">—</b></div>
      <div class="forecastcell"><small>HISTORICAL ACCURACY</small><b id="shadowAccuracy">—</b></div>
-     <div class="forecastcell"><small>95% LOWER BOUND</small><b id="shadowLowerBound">—</b></div>
+     <div class="forecastcell"><small>NOMINAL WILSON LOWER</small><b id="shadowLowerBound">—</b></div>
      <div class="forecastcell"><small>RESEARCH GATE</small><b id="shadowResearchGate">NOT TESTED</b></div>
     </div>
     <div id="shadowEngineNote" style="font-size:8px;line-height:1.55;color:#cfbdc3;margin-top:9px">Historical research only. Forecast horizon: close direction after 3 completed candles. No live probability or trade signal is produced.</div>
@@ -712,17 +712,20 @@ body{color:#fff!important}
 </section>
 
 <section class="section" id="performance">
- <div class="sectionhead"><div><div class="eyebrow">FORECAST TRACK RECORD</div><h2>Prediction Performance</h2><p>Measured results by pair, timeframe and model version—not estimated success rates.</p></div></div>
+ <div class="sectionhead"><div><div class="eyebrow">FORWARD SHADOW TRACK RECORD</div><h2>Prediction Performance</h2><p>Selected pair and timeframe · 3 completed-candle outcome · stored on this device only.</p></div><span class="tag muted" id="shadowLedgerStatus">LOCAL TRACKER READY</span></div>
  <div class="grid stats">
-  <div class="card stat"><div class="statlabel">DIRECTIONAL ACCURACY</div><div class="statvalue">—</div><div class="statnote">Out-of-sample</div></div>
-  <div class="card stat"><div class="statlabel">PRECISION / RECALL</div><div class="statvalue">— / —</div><div class="statnote">BUY / SELL classes</div></div>
-  <div class="card stat"><div class="statlabel">BRIER SCORE</div><div class="statvalue">—</div><div class="statnote">Probability calibration</div></div>
-  <div class="card stat"><div class="statlabel">MFE / MAE</div><div class="statvalue">— / —</div><div class="statnote">Favourable / adverse move</div></div>
-  <div class="card stat"><div class="statlabel">SIGNALS EVALUATED</div><div class="statvalue">—</div><div class="statnote">Closed evaluation set</div></div>
+  <div class="card stat"><div class="statlabel">FORWARD HIT RATE</div><div class="statvalue" id="shadowForwardRate">—</div><div class="statnote">Resolved directional forecasts only</div></div>
+  <div class="card stat"><div class="statlabel">RESOLVED FORECASTS</div><div class="statvalue" id="shadowForwardResolved">0</div><div class="statnote">HIT + MISS</div></div>
+  <div class="card stat"><div class="statlabel">HITS / MISSES</div><div class="statvalue" id="shadowForwardHitsMisses">0 / 0</div><div class="statnote">Actual 3-bar close direction</div></div>
+  <div class="card stat"><div class="statlabel">PENDING / FLAT</div><div class="statvalue" id="shadowForwardPendingFlat">0 / 0</div><div class="statnote">Flat outcomes excluded from hit rate</div></div>
+  <div class="card stat"><div class="statlabel">STORAGE</div><div class="statvalue" id="shadowForwardStorage">DEVICE LOCAL</div><div class="statnote">Not synced across devices</div></div>
  </div>
  <div class="card section">
-  <div class="cardhead"><h3>Forecast History</h3><span class="tag muted">NO EVALUATED FORECASTS</span></div>
-  <div class="tablewrap"><table><thead><tr><th>TIMESTAMP</th><th>PAIR</th><th>TIMEFRAME</th><th>DIRECTION</th><th>PROBABILITY</th><th>ENTRY</th><th>SL / TARGET</th><th>OUTCOME</th></tr></thead><tbody><tr><td colspan="8" class="blank" style="text-align:center;padding:24px">Forecast records will appear after the prediction engine has been connected and evaluated.</td></tr></tbody></table></div>
+  <div class="cardhead"><h3>Forward Shadow Forecast Ledger</h3><span class="tag muted" id="shadowForwardFilter">SELECTED PAIR / TF</span></div>
+  <div id="shadowForwardNote" class="forecastnote">Forecasts are added only when the quote and that timeframe's closed candles are fresh. Each result is checked after 3 later closed candles. No probability or trade instruction is generated.</div>
+  <div class="tablewrap"><table><thead><tr><th>FORECAST TIME (UTC)</th><th>PAIR</th><th>TF</th><th>SHADOW DIRECTION</th><th>ANCHOR CLOSE</th><th>3-BAR RESULT</th></tr></thead>
+   <tbody id="shadowForwardHistory"><tr><td colspan="6" class="blank" style="text-align:center;padding:24px">No forward shadow forecasts recorded on this device yet.</td></tr></tbody>
+  </table></div>
  </div>
 </section>
 
@@ -779,7 +782,10 @@ body{color:#fff!important}
  const quoteStates=new Map();
  let currentCandles=null,currentCandlesPair=null,currentCandlesMeta=null;
  let latestCalendarItems=null,latestCalendarFetchedAt=null,multiTimeframeState=null;
- let shadowEngineBusy=false,latestShadowEngine=null;
+ let latestMtfCandles=null;
+ let shadowEngineBusy=false,latestShadowEngine=null,shadowLedgerStorageAvailable=true;
+ const SHADOW_LEDGER_KEY='parthavi_forex_shadow_ledger_v1';
+ const SHADOW_HORIZON_BARS=3;
 
  const $=selector=>document.querySelector(selector);
  const pairNow=()=>$('#pairSelect')?.value||'EUR/USD';
@@ -1506,6 +1512,10 @@ body{color:#fff!important}
    try{return await requestJson('/api/forex/candles?pair='+encodeURIComponent(pair)+'&timeframe='+tf,20000);}
    catch(error){return {ok:false,error:String(error.message||'unavailable'),timeframe:tf};}
   }));
+  latestMtfCandles={
+   pair,
+   byTimeframe:Object.fromEntries(timeframes.map((tf,index)=>[tf,results[index]&&results[index].ok&&Array.isArray(results[index].candles)?results[index].candles:[]]))
+  };
   const values={direction:[],ema:[],momentum:[],structure:[],source:[]};
   const states=[];
   results.forEach((result,index)=>{
@@ -1562,6 +1572,7 @@ body{color:#fff!important}
    if(modelCells.length>1)modelCells[1].textContent=allFresh&&quoteFresh&&['BULLISH','BEARISH'].includes(sides[0])&&new Set(sides).size===1?'5/5 TF · 1 SOURCE':'TF / QUOTE WAIT';
   }
   if(currentCandles&&currentCandlesPair===pair)renderSourceAgreement(currentCandles,pair,currentCandlesMeta);
+  if(latestShadowEngine&&latestShadowEngine.pair===pair)processShadowLedger(latestShadowEngine);
  }
 
  const CURRENCY_CODES=['USD','EUR','GBP','JPY','CHF','AUD','NZD','CAD'];
@@ -1721,6 +1732,105 @@ body{color:#fff!important}
    note.textContent=(research.method||'Walk-forward not available')+' · target: '+(research.target||'3-bar close direction')+period+'. Accuracy is historical directional accuracy, not a future probability. Balanced accuracy: '+(hasNumber(research.balancedAccuracy)?(research.balancedAccuracy*100).toFixed(1)+'%':'N/A')+'; majority-class baseline: '+(hasNumber(research.majorityClassBaseline)?(research.majorityClassBaseline*100).toFixed(1)+'%':'N/A')+'. '+((research.limitations||[]).join('; '));
   }
   setNodeText('shadowFinalGate','FINAL: WAIT · '+String(live.reason||'Live evidence gates are not all satisfied')+'. No automatic trading.');
+  processShadowLedger(data);
+ }
+ function readShadowLedger(){
+  try{
+   const raw=localStorage.getItem(SHADOW_LEDGER_KEY);
+   const records=raw?JSON.parse(raw):[];
+   shadowLedgerStorageAvailable=Array.isArray(records);
+   return Array.isArray(records)?records.filter(r=>r&&r.key&&r.pair&&r.timeframe&&r.anchorTime&&r.direction&&r.status).slice(-3000):[];
+  }catch(error){shadowLedgerStorageAvailable=false;return [];}
+ }
+ function saveShadowLedger(records){
+  try{
+   localStorage.setItem(SHADOW_LEDGER_KEY,JSON.stringify(records.slice(-3000)));
+   shadowLedgerStorageAvailable=true;
+   return true;
+  }catch(error){shadowLedgerStorageAvailable=false;return false;}
+ }
+ function renderShadowLedger(records,pair,timeframe){
+  const selected=records.filter(r=>r.pair===pair&&r.timeframe===timeframe).sort((a,b)=>String(b.anchorTime).localeCompare(String(a.anchorTime)));
+  const hits=selected.filter(r=>r.status==='HIT').length;
+  const misses=selected.filter(r=>r.status==='MISS').length;
+  const pending=selected.filter(r=>r.status==='PENDING').length;
+  const flats=selected.filter(r=>r.status==='FLAT').length;
+  const resolved=hits+misses;
+  setNodeText('shadowForwardRate',resolved?((hits/resolved)*100).toFixed(1)+'%':'—');
+  setNodeText('shadowForwardResolved',String(resolved));
+  setNodeText('shadowForwardHitsMisses',hits+' / '+misses);
+  setNodeText('shadowForwardPendingFlat',pending+' / '+flats);
+  setNodeText('shadowForwardStorage',shadowLedgerStorageAvailable?'DEVICE LOCAL':'UNAVAILABLE');
+  setNodeText('shadowForwardFilter',pair+' · '+timeframe);
+  const status=$('#shadowLedgerStatus');
+  if(status)status.textContent=shadowLedgerStorageAvailable?'LOCAL · '+selected.length+' RECORDS':'BROWSER STORAGE BLOCKED';
+  const note=$('#shadowForwardNote');
+  if(note)note.textContent=pair+' '+timeframe+' · '+selected.length+' recorded · '+resolved+' resolved · '+pending+' awaiting 3 closed bars · '+flats+' flat (excluded). Hit rate = hits / (hits + misses), not a probability. Records stay in this browser/device and do not sync to your other devices.';
+  const body=$('#shadowForwardHistory');
+  if(!body)return;
+  body.textContent='';
+  if(!selected.length){
+   const tr=document.createElement('tr'),td=document.createElement('td');
+   td.colSpan=6;td.className='blank';td.style.textAlign='center';td.style.padding='24px';
+   td.textContent=shadowLedgerStorageAvailable?'No forecast has been recorded for this pair/timeframe yet. Fresh data and a directional shadow candidate are required.':'Browser storage is unavailable, so forward history cannot be retained on this device.';
+   tr.appendChild(td);body.appendChild(tr);return;
+  }
+  selected.slice(0,30).forEach(record=>{
+   const tr=document.createElement('tr');
+   const result=record.status==='PENDING'?'PENDING · '+SHADOW_HORIZON_BARS+' BARS':record.status+(record.actualDirection?' · '+record.actualDirection:'');
+   const values=[isoShort(record.anchorTime),record.pair,record.timeframe,'SHADOW '+record.direction,fmt(record.anchorClose,record.pair),result];
+   values.forEach((value,index)=>{
+    const td=document.createElement('td');td.textContent=value;
+    if(index===3)td.style.fontWeight='900';
+    if(index===5)td.style.fontWeight='900';
+    tr.appendChild(td);
+   });
+   body.appendChild(tr);
+  });
+ }
+ function processShadowLedger(data){
+  if(!data||!data.pair||!data.live||!latestMtfCandles||latestMtfCandles.pair!==data.pair)return;
+  const records=readShadowLedger(),states=Array.isArray(data.live.timeframes)?data.live.timeframes:[];
+  let changed=false;
+  // Resolve records only when three later, closed candles are present in the provider history.
+  records.forEach(record=>{
+   if(record.pair!==data.pair||record.status!=='PENDING')return;
+   const bars=latestMtfCandles.byTimeframe[record.timeframe]||[];
+   const anchorTs=Date.parse(record.anchorTime);
+   const index=bars.findIndex(c=>Date.parse(c.time||c.timestamp)===anchorTs);
+   if(index<0||index+SHADOW_HORIZON_BARS>=bars.length)return;
+   const target=bars[index+SHADOW_HORIZON_BARS];
+   const startPrice=Number(record.anchorClose),endPrice=Number(target.close);
+   if(!Number.isFinite(startPrice)||!Number.isFinite(endPrice))return;
+   const actual=endPrice>startPrice?'BULLISH':endPrice<startPrice?'BEARISH':'FLAT';
+   record.actualDirection=actual;
+   record.status=actual==='FLAT'?'FLAT':actual===record.direction?'HIT':'MISS';
+   record.targetClose=endPrice;
+   record.completedAt=target.time||new Date(target.timestamp).toISOString();
+   changed=true;
+  });
+  // One deduplicated record per actual closed candle and timeframe.
+  if(data.live.quoteFresh){
+   states.forEach(state=>{
+    if(!state||state.freshness!=='FRESH'||!['BULLISH','BEARISH'].includes(state.direction)||!state.lastCandleAt)return;
+    const bars=latestMtfCandles.byTimeframe[state.timeframe]||[];
+    const last=bars[bars.length-1];
+    if(!last)return;
+    const anchorTs=Date.parse(state.lastCandleAt),lastTs=Date.parse(last.time||last.timestamp);
+    if(!Number.isFinite(anchorTs)||anchorTs!==lastTs)return;
+    const key=data.pair+'|'+state.timeframe+'|'+new Date(anchorTs).toISOString();
+    if(records.some(record=>record.key===key))return;
+    records.push({
+     key,pair:data.pair,timeframe:state.timeframe,direction:state.direction,
+     anchorTime:new Date(anchorTs).toISOString(),anchorClose:Number(last.close),
+     horizonBars:SHADOW_HORIZON_BARS,status:'PENDING',
+     recordedAt:new Date().toISOString(),provider:'Biquote',model:'shadow-rule-v1'
+    });
+    changed=true;
+   });
+  }
+  if(changed)saveShadowLedger(records);
+  renderShadowLedger(records,data.pair,tfNow());
  }
  async function loadShadowEngine(){
   if(!apiReady||shadowEngineBusy)return;
@@ -1758,7 +1868,7 @@ body{color:#fff!important}
  }
  $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadShadowEngine();if(crossPairAnalytics)renderCrossPairAnalytics(crossPairAnalytics);},0));
  document.querySelectorAll('#tfbar button').forEach(button=>button.addEventListener('click',()=>setTimeout(()=>{refreshSelected();loadShadowEngine();},0)));
- document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(refreshSelected,0)));
+ document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadShadowEngine();},0)));
  init();
 })();
 </script>
