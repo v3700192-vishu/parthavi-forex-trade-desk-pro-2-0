@@ -22,6 +22,7 @@ Supported chart intervals: 5M, 15M, 30M, 1H and 4H.
 - `GET /api/forex/candles?pair=EUR/USD&timeframe=15M` — validated closed OHLC bars
 - `GET /api/forex/reference-rates` — daily ECB reference rates for the seven supported pairs, relayed by Frankfurter; reference context only, never a live signal
 - `GET /api/forex/fed-reference-rates` — Federal Reserve H.10 weekly-published daily observations, compared with ECB rates on the same observation date; reference validation only, never a live signal
+- `GET /api/forex/shadow-engine?pair=EUR/USD&timeframe=15M` — fixed-rule shadow direction, five-timeframe freshness/alignment and walk-forward research metrics; never a live trade signal
 
 Biquote's terms permit using and displaying its data in web dashboards, but prohibit reselling or redistributing the raw feed. Its quotes/candles are indicative third-party data, may be delayed, incomplete or wrong, and have no uptime SLA. Do not present them as guaranteed executable broker prices or regulated benchmark rates. See:
 - https://biquote.io/docs/
@@ -50,9 +51,16 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - Central-bank policy bias, risk sentiment, CPI/employment surprises and news sentiment are not yet verified/scored. Missing evidence remains WAIT.
 - No trade forecast or probability is issued until an independent permitted live-price source, all required risk checks, and out-of-sample calibration at or above the 68% threshold are demonstrated.
 
-## Performance and calibration
+## Shadow prediction engine and forward evaluation
 
-The dashboard intentionally shows no accuracy, precision/recall, Brier score, MFE/MAE, or forecast outcomes until a durable outcome ledger and a walk-forward evaluation set exist. No sample or synthetic performance values are used.
+- `GET /api/forex/shadow-engine?pair=EUR/USD&timeframe=15M` returns the research-only engine state, five-timeframe context, and a chronological walk-forward summary for the selected timeframe across the seven supported pairs.
+- The fixed-rule baseline uses EMA 9/21/50 alignment, RSI 14, MACD histogram, four-bar price momentum and a Wilder ADX 14 trend-strength floor of 18. A directional candidate requires all four direction votes to agree. The forecast horizon is the close direction after three completed candles; walk-forward samples advance by three candles to avoid overlapping labels.
+- The history window is limited by the upstream OHLC endpoint, so the research set may be too small. The 200-sample minimum is only a research-screen threshold, not proof of a profitable strategy.
+- The displayed historical accuracy is not a future probability. The nominal pooled Wilson lower bound is descriptive only because pairs and time-series observations are correlated; its IID assumptions are not established. The engine emits no probability, `probabilityCalibrated=false`, `validated=false`, and `liveEligible=false`. Final trade state remains WAIT.
+- A separate browser-local forward ledger records a forecast only when the current quote and that timeframe's closed candles are fresh. The entry is evaluated against the close three further completed candles later. It reports HIT/MISS/FLAT and a historical hit rate; flat outcomes are excluded from the hit-rate denominator.
+- Forward records are kept in the current browser's local storage, are not synced to other devices, and can be lost if browser data is cleared. This tracker is shadow research only, not a calibrated probability or broker execution result. No automatic orders are sent.
+
+No Brier score or probability calibration result is displayed because no calibrated probability model exists. MFE/MAE and a stop-loss/target outcome simulator remain future work.
 
 ## Derived cross-pair analytics
 
