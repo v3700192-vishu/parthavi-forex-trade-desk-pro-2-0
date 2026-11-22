@@ -5,6 +5,8 @@
  */
 'use strict';
 
+const { analyseDirection, walkForward } = require('./shadow-engine');
+
 const http = require('node:http');
 const { URL } = require('node:url');
 
@@ -27,6 +29,7 @@ const REFERENCE_CURRENCIES = ['USD','GBP','JPY','CHF','AUD','NZD','CAD'];
 const REFERENCE_PAIRS = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD'];
 const REFERENCE_CACHE_MS = 15 * 60 * 1000;
 const FED_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
+const SHADOW_CACHE_MS = 60 * 1000;
 const FED_H10_SERIES = [
   ['EUR/USD','DEXUSEU'],
   ['GBP/USD','DEXUSUK'],
@@ -38,6 +41,7 @@ const FED_H10_SERIES = [
 ];
 let referenceCache = null;
 let fedReferenceCache = null;
+const shadowEngineCache = new Map();
 const quoteCache = new Map();
 const candleCache = new Map();
 const requestWindows = new Map();
@@ -471,6 +475,79 @@ async function getCandles(pair,timeframe) {
   return result;
 }
 
+async function getShadowEngine(pair,timeframe) {
+  const key=pair+'|'+timeframe, cached=shadowEngineCache.get(key);
+  if(cached && Date.now()-cached.at<SHADOW_CACHE_MS) return {...cached.value,cache:'HIT'};
+
+  const allPairs=[...PAIRS];
+  const historyResults=await Promise.allSettled(allPairs.map(p=>getCandles(p,timeframe)));
+  const history=historyResults.map((result,index)=>result.status==='fulfilled'
+    ?{pair:allPairs[index],candles:result.value.candles}
+    :{pair:allPairs[index],candles:[]});
+  const selectedHistory=historyResults.find((result,index)=>allPairs[index]===pair);
+  const selectedCandles=selectedHistory&&selectedHistory.status==='fulfilled'?selectedHistory.value:null;
+  const timeframes=[...INTERVALS.keys()];
+  const currentResults=await Promise.allSettled(timeframes.map(tf=>
+    tf===timeframe&&selectedCandles?Promise.resolve(selectedCandles):getCandles(pair,tf)
+  ));
+  let quote=null;
+  try { quote=await getQuote(pair); } catch(error) { /* fail closed below */ }
+
+  const timeframeStates=currentResults.map((result,index)=>{
+    if(result.status!=='fulfilled') return {timeframe:timeframes[index],direction:'WAIT',freshness:'UNAVAILABLE',reason:safeError(result.reason)};
+    const value=result.value, analysis=analyseDirection(value.candles);
+    return {
+      timeframe:timeframes[index],
+      direction:analysis.direction,
+      reason:analysis.reason,
+      freshness:value.meta.freshness,
+      lastCandleAt:value.meta.lastCandleAt,
+      ageSeconds:value.meta.ageSeconds,
+      votes:analysis.votes,
+      metrics:analysis.metrics||null
+    };
+  });
+  const research=walkForward(history);
+  const quoteFresh=Boolean(quote&&quote.meta&&quote.meta.freshness==='FRESH'&&quote.quote&&quote.quote.marketState==='open');
+  const allCandlesFresh=timeframeStates.length===5&&timeframeStates.every(s=>s.freshness==='FRESH');
+  const directions=timeframeStates.map(s=>s.direction);
+  const aligned=directions.length===5&&['BULLISH','BEARISH'].includes(directions[0])&&directions.every(side=>side===directions[0]);
+  const shadowDirection=quoteFresh&&allCandlesFresh&&aligned?directions[0]:'WAIT';
+  const blockers=[];
+  if(!quoteFresh)blockers.push('live quote stale or market closed');
+  if(!allCandlesFresh)blockers.push('one or more timeframe candles stale/unavailable');
+  if(!aligned)blockers.push('five-timeframe direction is mixed or incomplete');
+  blockers.push('independent live-price confirmation not available');
+  blockers.push('68% probability calibration not established');
+  const result={
+    ok:true,engine:'PARTHAVI SHADOW DIRECTION ENGINE',
+    pair,timeframe,
+    live:{
+      shadowDirection,
+      finalDecision:'WAIT',
+      liveEligible:false,
+      quoteFresh,
+      allCandlesFresh,
+      fiveTimeframeAligned:aligned,
+      reason:blockers.join('; '),
+      timeframes:timeframeStates
+    },
+    research,
+    methodology:{
+      indicators:['EMA 9/21/50 stack','RSI 14 momentum','MACD histogram','four-bar price momentum','ADX 14 trend-strength gate'],
+      decisionRule:'All four directional votes must agree and ADX 14 must be at least 18.',
+      horizon:'Close direction after the next 3 completed candles of the selected timeframe.',
+      dataProvider:'Biquote only',
+      probabilityEmitted:false,
+      disclaimer:'Shadow research only. This is not a calibrated probability, independent-source agreement, broker execution quote or trade instruction.'
+    },
+    fetchedAt:new Date().toISOString(),
+    cache:'MISS'
+  };
+  shadowEngineCache.set(key,{at:Date.now(),value:result});
+  return result;
+}
+
 const server=http.createServer(async(req,res)=>{
   if(!allowedOrigin(req,res)) return;
   if(req.method==='OPTIONS') { res.writeHead(204);return res.end(); }
@@ -490,6 +567,13 @@ const server=http.createServer(async(req,res)=>{
     });
   }
   const pair=normalisePair(url.searchParams.get('pair'));
+  if(url.pathname==='/api/forex/shadow-engine') {
+    if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
+    const timeframe=String(url.searchParams.get('timeframe')||'15M').toUpperCase();
+    if(!INTERVALS.has(timeframe)) return respond(res,400,{ok:false,error:'unsupported_timeframe'});
+    try { return respond(res,200,await getShadowEngine(pair,timeframe)); }
+    catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,engine:'PARTHAVI SHADOW DIRECTION ENGINE',pair,timeframe,error:safeError(error),liveEligible:false,finalDecision:'WAIT'}); }
+  }
   if(url.pathname==='/api/forex/fed-reference-rates') {
     try { return respond(res,200,await getFederalReserveReferenceRates()); }
     catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,provider:'Federal Reserve H.10',relay:'FRED graph CSV',error:safeError(error),signalEligible:false}); }
