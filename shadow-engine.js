@@ -185,9 +185,8 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
   }
   const accuracy = evaluated ? correct / evaluated : null;
   const lower95 = wilsonLowerBound(correct, evaluated);
-  const validated = evaluated >= MIN_VALIDATION_SAMPLES &&
-    accuracy >= VALIDATED_ACCURACY_GATE && lower95 !== null &&
-    lower95 >= VALIDATED_ACCURACY_GATE;
+  const accuracyScreenPassed = evaluated >= MIN_VALIDATION_SAMPLES &&
+    accuracy !== null && accuracy >= VALIDATED_ACCURACY_GATE;
   return {
     method: 'fixed-rule chronological walk-forward; no look-ahead in features',
     target: 'direction of close after next 3 completed candles',
@@ -196,16 +195,23 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
     bullish, bearish, accuracy, lower95,
     firstForecastAt, lastForecastAt,
     minimumSamples: MIN_VALIDATION_SAMPLES,
-    gate: VALIDATED_ACCURACY_GATE,
-    validated,
-    status: validated ? 'RESEARCH_GATE_PASSED' : evaluated < MIN_VALIDATION_SAMPLES
-      ? 'INSUFFICIENT_SAMPLE' : 'RESEARCH_GATE_NOT_PASSED',
+    accuracyScreen: VALIDATED_ACCURACY_GATE,
+    accuracyScreenPassed,
+    probabilityGate: 0.68,
+    probabilityCalibrated: false,
+    validated: false,
+    status: evaluated < MIN_VALIDATION_SAMPLES ? 'INSUFFICIENT_SAMPLE'
+      : accuracyScreenPassed ? 'ACCURACY_SCREEN_ONLY_CALIBRATION_MISSING'
+      : 'ACCURACY_SCREEN_NOT_PASSED',
+    lower95Interpretation: 'Nominal Wilson bound only; pooled FX pairs and serial observations are correlated, so IID confidence assumptions are not established.',
     byPair,
     limitations: [
       'Single indicative provider only',
+      'Pooled FX pairs and time-series observations are correlated; pooled confidence bounds are descriptive only',
       'Close-to-close direction target; not stop-loss/target simulation',
       'No transaction costs, spread, slippage or execution simulation',
-      'Not a calibrated win probability and not a live trade signal'
+      'No calibrated probability is produced; the 68% probability gate remains unavailable',
+      'Not a live trade signal'
     ]
   };
 }
