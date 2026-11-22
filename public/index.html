@@ -559,6 +559,19 @@ body{color:#fff!important}
     <div class="forecastcell"><small>TARGET 1</small><b>—</b></div><div class="forecastcell"><small>TARGET 2</small><b>—</b></div>
    </div>
    <div class="forecastnote">Final output requires fresh quotes, completed candles, aligned higher-timeframe bias, source agreement and calibrated out-of-sample probability. Missing or mixed evidence = WAIT.</div>
+   <div id="shadowEnginePanel" style="margin-top:13px;padding-top:12px;border-top:1px solid rgba(255,213,46,.2)">
+    <div class="forecasttop"><b style="font-size:9px;color:#ffdc49">SHADOW PREDICTION ENGINE</b><span class="tag muted" id="shadowEngineStatus">CONNECTING</span></div>
+    <div id="shadowCandidate" style="font-size:15px;font-weight:950;color:#fff0a1;margin-top:9px">WAIT · ENGINE STARTING</div>
+    <div id="shadowTimeframes" style="font-size:8px;line-height:1.7;color:#cfbdc3;margin-top:5px">5 timeframe checks pending</div>
+    <div class="forecastgrid" style="margin-top:9px">
+     <div class="forecastcell"><small>WALK-FORWARD SAMPLE</small><b id="shadowSample">—</b></div>
+     <div class="forecastcell"><small>HISTORICAL ACCURACY</small><b id="shadowAccuracy">—</b></div>
+     <div class="forecastcell"><small>95% LOWER BOUND</small><b id="shadowLowerBound">—</b></div>
+     <div class="forecastcell"><small>RESEARCH GATE</small><b id="shadowResearchGate">NOT TESTED</b></div>
+    </div>
+    <div id="shadowEngineNote" style="font-size:8px;line-height:1.55;color:#cfbdc3;margin-top:9px">Historical research only. Forecast horizon: close direction after 3 completed candles. No live probability or trade signal is produced.</div>
+    <div id="shadowFinalGate" style="font-size:8px;line-height:1.55;color:#ffdc49;margin-top:7px">FINAL: WAIT · independent data and calibrated probability gates remain required.</div>
+   </div>
   </article>
  </div>
 </section>
@@ -766,6 +779,7 @@ body{color:#fff!important}
  const quoteStates=new Map();
  let currentCandles=null,currentCandlesPair=null,currentCandlesMeta=null;
  let latestCalendarItems=null,latestCalendarFetchedAt=null,multiTimeframeState=null;
+ let shadowEngineBusy=false,latestShadowEngine=null;
 
  const $=selector=>document.querySelector(selector);
  const pairNow=()=>$('#pairSelect')?.value||'EUR/USD';
@@ -1688,11 +1702,45 @@ body{color:#fff!important}
    clearCrossPairDisplays('WAIT · CROSS-PAIR ANALYSIS UNAVAILABLE');
   }finally{crossPairAnalyticsBusy=false;}
  }
+ function renderShadowEngine(data){
+  latestShadowEngine=data;
+  const live=data.live||{},research=data.research||{};
+  const status=$('#shadowEngineStatus');
+  if(status)status.textContent=live.quoteFresh&&live.allCandlesFresh?'DATA FRESH · SHADOW ONLY':'DATA STALE · WAIT';
+  const candidate=$('#shadowCandidate');
+  if(candidate)candidate.textContent=(live.shadowDirection&&live.shadowDirection!=='WAIT'?'SHADOW '+live.shadowDirection:'WAIT')+' · NOT TRADE-ELIGIBLE';
+  const tfNode=$('#shadowTimeframes');
+  if(tfNode)tfNode.textContent=(live.timeframes||[]).map(x=>x.timeframe+': '+x.direction+' ('+x.freshness+')').join('  |  ');
+  setNodeText('shadowSample',String(research.evaluated||0)+' / '+String(research.minimumSamples||200));
+  setNodeText('shadowAccuracy',hasNumber(research.accuracy)?(research.accuracy*100).toFixed(1)+'%':'—');
+  setNodeText('shadowLowerBound',hasNumber(research.lower95)?(research.lower95*100).toFixed(1)+'%':'—');
+  setNodeText('shadowResearchGate',research.status||'NOT TESTED');
+  const note=$('#shadowEngineNote');
+  if(note){
+   const period=research.firstForecastAt&&research.lastForecastAt?' · '+research.firstForecastAt+' → '+research.lastForecastAt:'';
+   note.textContent=(research.method||'Walk-forward not available')+' · target: '+(research.target||'3-bar close direction')+period+'. Accuracy is historical directional accuracy, not a future probability. '+((research.limitations||[]).join('; '));
+  }
+  setNodeText('shadowFinalGate','FINAL: WAIT · '+String(live.reason||'Live evidence gates are not all satisfied')+'. No automatic trading.');
+ }
+ async function loadShadowEngine(){
+  if(!apiReady||shadowEngineBusy)return;
+  shadowEngineBusy=true;
+  try{
+   const pair=pairNow(),timeframe=tfNow();
+   const data=await requestJson('/api/forex/shadow-engine?pair='+encodeURIComponent(pair)+'&timeframe='+encodeURIComponent(timeframe),60000);
+   if(pair===pairNow()&&timeframe===tfNow())renderShadowEngine(data);
+  }catch(error){
+   setNodeText('shadowEngineStatus','ENGINE UNAVAILABLE');
+   setNodeText('shadowCandidate','WAIT · SHADOW ENGINE ERROR');
+   setNodeText('shadowFinalGate','FINAL: WAIT · '+String(error.message||'engine_unavailable'));
+  }finally{shadowEngineBusy=false;}
+ }
  async function loadWatchlist(){if(!apiReady)return;await Promise.all(PAIRS.map(pair=>loadQuote(pair,true)));}
  async function refreshSelected(){if(!apiReady)return;await Promise.all([loadQuote(pairNow(),false),loadCandles(pairNow(),tfNow())]);}
  async function init(){
   if(await getStatus()){
    await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews(),loadMultiTimeframe(pairNow()),loadCrossPairAnalytics(),loadEcbReferenceRates()]);
+   await loadShadowEngine();
    loadFedReferenceRates();
    await startQuoteStream();
   }
@@ -1705,10 +1753,11 @@ body{color:#fff!important}
   setInterval(()=>{if(apiReady)loadFedReferenceRates();},21600000);
   setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadWatchlist();},WATCHLIST_REFRESH_MS);
   setInterval(()=>{if(apiReady){loadCandles(pairNow(),tfNow());loadMultiTimeframe(pairNow());}},CANDLE_REFRESH_MS);
+  setInterval(()=>{if(apiReady)loadShadowEngine();},CANDLE_REFRESH_MS);
   setInterval(async()=>{if(!apiReady)await getStatus();},60000);
  }
- $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());if(crossPairAnalytics)renderCrossPairAnalytics(crossPairAnalytics);},0));
- document.querySelectorAll('#tfbar button').forEach(button=>button.addEventListener('click',()=>setTimeout(refreshSelected,0)));
+ $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadShadowEngine();if(crossPairAnalytics)renderCrossPairAnalytics(crossPairAnalytics);},0));
+ document.querySelectorAll('#tfbar button').forEach(button=>button.addEventListener('click',()=>setTimeout(()=>{refreshSelected();loadShadowEngine();},0)));
  document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(refreshSelected,0)));
  init();
 })();
