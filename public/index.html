@@ -1718,7 +1718,7 @@ body{color:#fff!important}
   const note=$('#shadowEngineNote');
   if(note){
    const period=research.firstForecastAt&&research.lastForecastAt?' · '+research.firstForecastAt+' → '+research.lastForecastAt:'';
-   note.textContent=(research.method||'Walk-forward not available')+' · target: '+(research.target||'3-bar close direction')+period+'. Accuracy is historical directional accuracy, not a future probability. '+((research.limitations||[]).join('; '));
+   note.textContent=(research.method||'Walk-forward not available')+' · target: '+(research.target||'3-bar close direction')+period+'. Accuracy is historical directional accuracy, not a future probability. Balanced accuracy: '+(hasNumber(research.balancedAccuracy)?(research.balancedAccuracy*100).toFixed(1)+'%':'N/A')+'; majority-class baseline: '+(hasNumber(research.majorityClassBaseline)?(research.majorityClassBaseline*100).toFixed(1)+'%':'N/A')+'. '+((research.limitations||[]).join('; '));
   }
   setNodeText('shadowFinalGate','FINAL: WAIT · '+String(live.reason||'Live evidence gates are not all satisfied')+'. No automatic trading.');
  }
