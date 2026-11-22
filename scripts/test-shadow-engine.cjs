@@ -30,7 +30,7 @@ assert.ok(research.evaluated > 0 && research.evaluated < 200);
 assert.ok(research.accuracy >= 0 && research.accuracy <= 1);
 assert.ok(research.lower95 >= 0 && research.lower95 <= 1);
 assert.equal(research.validated, false, 'one 240-bar sample must not clear the 200-sample gate');
-assert.ok(research.limitations.some(item => item.includes('not a calibrated win probability')));
+assert.ok(research.limitations.some(item => item.includes('No calibrated probability is produced')));
 assert.equal(wilsonLowerBound(0, 0), null);
 assert.equal(wilsonLowerBound(10, 10) > 0.68, true);
 
