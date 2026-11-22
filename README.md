@@ -70,7 +70,7 @@ No Brier score or probability calibration result is displayed because no calibra
 
 ## Validation
 
-`npm run check` validates the backend syntax and every inline browser JavaScript block. GitHub Actions runs this check on each push to `main` and on pull requests.
+`npm run check` validates `server.js` and `shadow-engine.js` syntax, runs deterministic direction / walk-forward / probability-gate tests for the shadow engine, and checks every inline browser JavaScript block for syntax. It does not validate predictive profitability or calibrated probability.
 
 ## Run locally
 
