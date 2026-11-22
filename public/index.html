@@ -565,11 +565,18 @@ body{color:#fff!important}
     <div id="shadowTimeframes" style="font-size:8px;line-height:1.7;color:#cfbdc3;margin-top:5px">5 timeframe checks pending</div>
     <div class="forecastgrid" style="margin-top:9px">
      <div class="forecastcell"><small>WALK-FORWARD SAMPLE</small><b id="shadowSample">—</b></div>
-     <div class="forecastcell"><small>HISTORICAL ACCURACY</small><b id="shadowAccuracy">—</b></div>
+     <div class="forecastcell"><small>DIRECTIONAL HIT RATE</small><b id="shadowAccuracy">—</b></div>
+     <div class="forecastcell"><small>BALANCED ACCURACY</small><b id="shadowBalancedAccuracy">—</b></div>
+     <div class="forecastcell"><small>MAJORITY BASELINE</small><b id="shadowMajorityBaseline">—</b></div>
      <div class="forecastcell"><small>NOMINAL WILSON LOWER</small><b id="shadowLowerBound">—</b></div>
-     <div class="forecastcell"><small>RESEARCH GATE</small><b id="shadowResearchGate">NOT TESTED</b></div>
+     <div class="forecastcell"><small>ACCURACY SCREEN</small><b id="shadowResearchGate">NOT TESTED</b></div>
     </div>
-    <div id="shadowEngineNote" style="font-size:8px;line-height:1.55;color:#cfbdc3;margin-top:9px">Historical research only. Forecast horizon: close direction after 3 completed candles. No live probability or trade signal is produced.</div>
+    <div class="tablewrap" style="margin-top:9px">
+     <table style="min-width:340px"><thead><tr><th>PAIR</th><th>TESTS</th><th>HITS</th><th>DIRECTIONAL HIT RATE</th></tr></thead>
+      <tbody id="shadowResearchByPair"><tr><td colspan="4" class="blank" style="text-align:center">Walk-forward pair results pending.</td></tr></tbody>
+     </table>
+    </div>
+    <div id="shadowEngineNote" style="font-size:8px;line-height:1.55;color:#cfbdc3;margin-top:9px">Historical research only. Forecast horizon: close direction after 3 completed candles. Raw hit rate is not a future probability. No live signal is permitted.</div>
     <div id="shadowFinalGate" style="font-size:8px;line-height:1.55;color:#ffdc49;margin-top:7px">FINAL: WAIT · independent data and calibrated probability gates remain required.</div>
    </div>
   </article>
@@ -1724,8 +1731,23 @@ body{color:#fff!important}
   if(tfNode)tfNode.textContent=(live.timeframes||[]).map(x=>x.timeframe+': '+x.direction+' ('+x.freshness+')').join('  |  ');
   setNodeText('shadowSample',String(research.evaluated||0)+' / '+String(research.minimumSamples||200));
   setNodeText('shadowAccuracy',hasNumber(research.accuracy)?(research.accuracy*100).toFixed(1)+'%':'—');
+  setNodeText('shadowBalancedAccuracy',hasNumber(research.balancedAccuracy)?(research.balancedAccuracy*100).toFixed(1)+'%':'—');
+  setNodeText('shadowMajorityBaseline',hasNumber(research.majorityClassBaseline)?(research.majorityClassBaseline*100).toFixed(1)+'%':'—');
   setNodeText('shadowLowerBound',hasNumber(research.lower95)?(research.lower95*100).toFixed(1)+'%':'—');
   setNodeText('shadowResearchGate',research.status||'NOT TESTED');
+  const byPairBody=$('#shadowResearchByPair');
+  if(byPairBody){
+   byPairBody.textContent='';
+   (Array.isArray(research.byPair)?research.byPair:[]).forEach(item=>{
+    const tr=document.createElement('tr');
+    const values=[item.pair||'—',String(item.evaluated||0),String(item.correct||0),hasNumber(item.accuracy)?(item.accuracy*100).toFixed(1)+'%':'—'];
+    values.forEach(value=>{const td=document.createElement('td');td.textContent=value;tr.appendChild(td);});
+    byPairBody.appendChild(tr);
+   });
+   if(!byPairBody.children.length){
+    const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.className='blank';td.textContent='No eligible walk-forward forecasts in this dataset.';tr.appendChild(td);byPairBody.appendChild(tr);
+   }
+  }
   const note=$('#shadowEngineNote');
   if(note){
    const period=research.firstForecastAt&&research.lastForecastAt?' · '+research.firstForecastAt+' → '+research.lastForecastAt:'';
