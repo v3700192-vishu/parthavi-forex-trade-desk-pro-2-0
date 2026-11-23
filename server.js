@@ -542,7 +542,7 @@ async function getShadowEngine(pair,timeframe) {
       allCandlesFresh,
       fiveTimeframeAligned:aligned,
       independentSource:{
-        provider:'SiftingIO',status:!independentQuoteFresh?independentQuote.status:priceAgreement.status,
+        provider:'SiftingIO',status:!independentQuoteFresh?independentQuote.status:!quoteFresh?'PRIMARY_STALE':priceAgreement.status,
         connected:Boolean(independentQuote&&independentQuote.connected),quoteFresh:independentQuoteFresh,priceAligned:independentAligned,
         timestamp:independentQuote&&independentQuote.quote?independentQuote.quote.timestamp:null,
         ageMs:independentQuote&&independentQuote.meta?independentQuote.meta.ageMs:null,
