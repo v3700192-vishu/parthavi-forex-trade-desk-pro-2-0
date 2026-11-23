@@ -6,6 +6,10 @@
 'use strict';
 
 const { analyseDirection, walkForward } = require('./shadow-engine');
+const {
+  startIndependentSource, selectIndependentPair, getIndependentQuote,
+  getIndependentSourceStatus, compareIndependentQuotes
+} = require('./independent-source');
 
 const http = require('node:http');
 const { URL } = require('node:url');
@@ -479,6 +483,7 @@ async function getShadowEngine(pair,timeframe) {
   const key=pair+'|'+timeframe, cached=shadowEngineCache.get(key);
   if(cached && Date.now()-cached.at<SHADOW_CACHE_MS) return {...cached.value,cache:'HIT'};
 
+  selectIndependentPair(pair);
   const allPairs=[...PAIRS];
   const historyResults=await Promise.allSettled(allPairs.map(p=>getCandles(p,timeframe)));
   const history=historyResults.map((result,index)=>result.status==='fulfilled'
@@ -492,6 +497,7 @@ async function getShadowEngine(pair,timeframe) {
   ));
   let quote=null;
   try { quote=await getQuote(pair); } catch(error) { /* fail closed below */ }
+  const independentQuote=getIndependentQuote(pair);
 
   const timeframeStates=currentResults.map((result,index)=>{
     if(result.status!=='fulfilled') return {timeframe:timeframes[index],direction:'WAIT',freshness:'UNAVAILABLE',reason:safeError(result.reason)};
@@ -512,12 +518,18 @@ async function getShadowEngine(pair,timeframe) {
   const allCandlesFresh=timeframeStates.length===5&&timeframeStates.every(s=>s.freshness==='FRESH');
   const directions=timeframeStates.map(s=>s.direction);
   const aligned=directions.length===5&&['BULLISH','BEARISH'].includes(directions[0])&&directions.every(side=>side===directions[0]);
-  const shadowDirection=quoteFresh&&allCandlesFresh&&aligned?directions[0]:'WAIT';
+  const primaryMid=quote&&quote.quote?quote.quote.mid:null;
+  const independentMid=independentQuote&&independentQuote.quote?independentQuote.quote.mid:null;
+  const priceAgreement=compareIndependentQuotes({mid:primaryMid},{mid:independentMid});
+  const independentQuoteFresh=Boolean(independentQuote&&independentQuote.meta&&independentQuote.meta.freshness==='FRESH');
+  const independentAligned=quoteFresh&&independentQuoteFresh&&priceAgreement.aligned;
+  const shadowDirection=quoteFresh&&independentAligned&&allCandlesFresh&&aligned?directions[0]:'WAIT';
   const blockers=[];
-  if(!quoteFresh)blockers.push('live quote stale or market closed');
+  if(!quoteFresh)blockers.push('Biquote live quote stale or market closed');
   if(!allCandlesFresh)blockers.push('one or more timeframe candles stale/unavailable');
   if(!aligned)blockers.push('five-timeframe direction is mixed or incomplete');
-  blockers.push('independent live-price confirmation not available');
+  if(!independentQuoteFresh)blockers.push('SiftingIO independent live quote unavailable or stale');
+  else if(!priceAgreement.aligned)blockers.push('Biquote and SiftingIO price divergence exceeds '+priceAgreement.maxDeviationPct+'%');
   blockers.push('68% probability calibration not established');
   const result={
     ok:true,engine:'PARTHAVI SHADOW DIRECTION ENGINE',
@@ -529,6 +541,16 @@ async function getShadowEngine(pair,timeframe) {
       quoteFresh,
       allCandlesFresh,
       fiveTimeframeAligned:aligned,
+      independentSource:{
+        provider:'SiftingIO',status:!independentQuoteFresh?independentQuote.status:priceAgreement.status,
+        connected:Boolean(independentQuote&&independentQuote.connected),quoteFresh:independentQuoteFresh,priceAligned:independentAligned,
+        timestamp:independentQuote&&independentQuote.quote?independentQuote.quote.timestamp:null,
+        ageMs:independentQuote&&independentQuote.meta?independentQuote.meta.ageMs:null,
+        bid:independentQuote&&independentQuote.quote?independentQuote.quote.bid:null,
+        ask:independentQuote&&independentQuote.quote?independentQuote.quote.ask:null,mid:independentMid,primaryMid,
+        deviationPct:priceAgreement.deviationPct,maxDeviationPct:priceAgreement.maxDeviationPct,
+        subscribedPairs:independentQuote&&independentQuote.subscribedPairs?independentQuote.subscribedPairs:[]
+      },
       reason:blockers.join('; '),
       timeframes:timeframeStates
     },
@@ -537,7 +559,7 @@ async function getShadowEngine(pair,timeframe) {
       indicators:['EMA 9/21/50 stack','RSI 14 momentum','MACD histogram','four-bar price momentum','ADX 14 trend-strength gate'],
       decisionRule:'All four directional votes must agree and ADX 14 must be at least 18.',
       horizon:'Close direction after the next 3 completed candles of the selected timeframe.',
-      dataProvider:'Biquote only',
+      dataProvider:'Biquote + SiftingIO independent aggregated FX quote stream',
       probabilityEmitted:false,
       disclaimer:'Shadow research only. This is not a calibrated probability, independent-source agreement, broker execution quote or trade instruction.'
     },
@@ -558,7 +580,8 @@ const server=http.createServer(async(req,res)=>{
     return respond(res,200,{
       ok:true,service:'PARTHAVI FOREX DATA API',
       provider:PROVIDER,providerConfigured:true,authenticationRequired:false,
-      feedMode:'SignalR WebSocket quote stream in browser + REST closed OHLC candles; REST quote fallback',
+      independentSource:getIndependentSourceStatus(),
+      feedMode:'Biquote browser SignalR + REST OHLC candles; SiftingIO server WebSocket independent live quote cross-check',
       freshnessRule:'provider quoteAgeSeconds + candle timestamp checked; stale or closed market blocks signals',
       usageRights:'Provider terms permit use and display in web dashboards; do not redistribute raw feed.',
       disclaimer:'Indicative feed with no uptime SLA. Not a broker execution feed or guaranteed tradable price.',
@@ -567,6 +590,11 @@ const server=http.createServer(async(req,res)=>{
     });
   }
   const pair=normalisePair(url.searchParams.get('pair'));
+  if(url.pathname==='/api/forex/independent-source') {
+    if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
+    selectIndependentPair(pair);
+    return respond(res,200,{ok:true,source:getIndependentSourceStatus(),quote:getIndependentQuote(pair)});
+  }
   if(url.pathname==='/api/forex/shadow-engine') {
     if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
     const timeframe=String(url.searchParams.get('timeframe')||'15M').toUpperCase();
@@ -658,5 +686,7 @@ async function upstreamSelfCheck() {
 server.listen(PORT,'0.0.0.0',()=>{
   console.log('[PARTHAVI_FOREX_API] listening port='+PORT);
   console.log('[PARTHAVI_FOREX_API] provider='+PROVIDER+' key_required=false');
+  startIndependentSource();
+  console.log('[INDEPENDENT_SOURCE] provider=SiftingIO configured='+getIndependentSourceStatus().configured+' status='+getIndependentSourceStatus().status);
   upstreamSelfCheck().catch(error=>console.log('[UPSTREAM_CHECK] unexpected_failure='+safeError(error)));
 });
