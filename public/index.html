@@ -564,6 +564,10 @@ body{color:#fff!important}
     <div id="shadowCandidate" style="font-size:15px;font-weight:950;color:#fff0a1;margin-top:9px">WAIT · ENGINE STARTING</div>
     <div id="shadowTimeframes" style="font-size:8px;line-height:1.7;color:#cfbdc3;margin-top:5px">5 timeframe checks pending</div>
     <div class="forecastgrid" style="margin-top:9px">
+     <div class="forecastcell"><small>INDEPENDENT SOURCE · SIFTINGIO</small><b id="independentSourceStatus">API KEY REQUIRED</b></div>
+     <div class="forecastcell"><small>LIVE PRICE GAP · MAX 0.05%</small><b id="independentSourceDeviation">—</b></div>
+    </div>
+    <div class="forecastgrid" style="margin-top:9px">
      <div class="forecastcell"><small>WALK-FORWARD SAMPLE</small><b id="shadowSample">—</b></div>
      <div class="forecastcell"><small>DIRECTIONAL HIT RATE</small><b id="shadowAccuracy">—</b></div>
      <div class="forecastcell"><small>BALANCED ACCURACY</small><b id="shadowBalancedAccuracy">—</b></div>
@@ -790,7 +794,7 @@ body{color:#fff!important}
  let currentCandles=null,currentCandlesPair=null,currentCandlesMeta=null;
  let latestCalendarItems=null,latestCalendarFetchedAt=null,multiTimeframeState=null;
  let latestMtfCandles=null;
- let shadowEngineBusy=false,latestShadowEngine=null,shadowLedgerStorageAvailable=true;
+ let shadowEngineBusy=false,latestShadowEngine=null,shadowLedgerStorageAvailable=true,independentSourceBusy=false;
  const SHADOW_LEDGER_KEY='parthavi_forex_shadow_ledger_v1';
  const SHADOW_HORIZON_BARS=3;
 
@@ -1720,6 +1724,17 @@ body{color:#fff!important}
    clearCrossPairDisplays('WAIT · CROSS-PAIR ANALYSIS UNAVAILABLE');
   }finally{crossPairAnalyticsBusy=false;}
  }
+ function renderIndependentSource(data){
+  const quote=data?.quote||{},source=data?.source||{};
+  let label=quote.meta?.freshness==='FRESH'?'LIVE · SIFTINGIO':(quote.status||source.status||'WAIT');
+  if(!source.configured)label='FREE API KEY REQUIRED';
+  setNodeText('independentSourceStatus',label);
+  const detail=quote.quote
+   ?'Bid '+fmt(quote.quote.bid,pairNow())+' · Ask '+fmt(quote.quote.ask,pairNow())+' · Age '+(hasNumber(quote.meta?.ageMs)?Math.round(Number(quote.meta.ageMs)/1000)+'s':'—')
+   :('Status '+String(source.status||quote.status||'WAIT')+' · Selected '+pairNow());
+  const statusNode=$('#independentSourceStatus');
+  if(statusNode)statusNode.title=detail;
+ }
  function renderShadowEngine(data){
   latestShadowEngine=data;
   const live=data.live||{},research=data.research||{};
@@ -1729,6 +1744,13 @@ body{color:#fff!important}
   if(candidate)candidate.textContent=(live.shadowDirection&&live.shadowDirection!=='WAIT'?'SHADOW '+live.shadowDirection:'WAIT')+' · NOT TRADE-ELIGIBLE';
   const tfNode=$('#shadowTimeframes');
   if(tfNode)tfNode.textContent=(live.timeframes||[]).map(x=>x.timeframe+': '+x.direction+' ('+x.freshness+')').join('  |  ');
+  if(live.independentSource){
+   const independent=live.independentSource;
+   setNodeText('independentSourceStatus',independent.status||'WAIT');
+   setNodeText('independentSourceDeviation',hasNumber(independent.deviationPct)?Number(independent.deviationPct).toFixed(3)+'%':'WAIT');
+   const independentNode=$('#independentSourceStatus');
+   if(independentNode)independentNode.title='SiftingIO '+(independent.timestamp||'—')+' · '+(hasNumber(independent.ageMs)?Math.round(independent.ageMs/1000)+'s':'—')+' · max gap '+independent.maxDeviationPct+'%';
+  }
   setNodeText('shadowSample',String(research.evaluated||0)+' / '+String(research.minimumSamples||200));
   setNodeText('shadowAccuracy',hasNumber(research.accuracy)?(research.accuracy*100).toFixed(1)+'%':'—');
   setNodeText('shadowBalancedAccuracy',hasNumber(research.balancedAccuracy)?(research.balancedAccuracy*100).toFixed(1)+'%':'—');
@@ -1854,6 +1876,17 @@ body{color:#fff!important}
   if(changed)saveShadowLedger(records);
   renderShadowLedger(records,data.pair,tfNow());
  }
+ async function loadIndependentSource(){
+  if(!apiReady||independentSourceBusy)return;
+  independentSourceBusy=true;
+  try{
+   const data=await requestJson('/api/forex/independent-source?pair='+encodeURIComponent(pairNow()),12000);
+   renderIndependentSource(data);
+  }catch(error){
+   setNodeText('independentSourceStatus','SOURCE CHECK ERROR');
+   setNodeText('independentSourceDeviation','WAIT');
+  }finally{independentSourceBusy=false;}
+ }
  async function loadShadowEngine(){
   if(!apiReady||shadowEngineBusy)return;
   shadowEngineBusy=true;
@@ -1872,6 +1905,7 @@ body{color:#fff!important}
  async function init(){
   if(await getStatus()){
    await Promise.all([loadWatchlist(),refreshSelected(),loadCalendar(),loadMarketNews(),loadMultiTimeframe(pairNow()),loadCrossPairAnalytics(),loadEcbReferenceRates()]);
+   await loadIndependentSource();
    await loadShadowEngine();
    loadFedReferenceRates();
    await startQuoteStream();
@@ -1886,11 +1920,12 @@ body{color:#fff!important}
   setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadWatchlist();},WATCHLIST_REFRESH_MS);
   setInterval(()=>{if(apiReady){loadCandles(pairNow(),tfNow());loadMultiTimeframe(pairNow());}},CANDLE_REFRESH_MS);
   setInterval(()=>{if(apiReady)loadShadowEngine();},CANDLE_REFRESH_MS);
+  setInterval(()=>{if(apiReady)loadIndependentSource();},5000);
   setInterval(async()=>{if(!apiReady)await getStatus();},60000);
  }
- $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadShadowEngine();if(crossPairAnalytics)renderCrossPairAnalytics(crossPairAnalytics);},0));
+ $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadIndependentSource();loadShadowEngine();if(crossPairAnalytics)renderCrossPairAnalytics(crossPairAnalytics);},0));
  document.querySelectorAll('#tfbar button').forEach(button=>button.addEventListener('click',()=>setTimeout(()=>{refreshSelected();loadShadowEngine();},0)));
- document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadShadowEngine();},0)));
+ document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadIndependentSource();loadShadowEngine();},0)));
  init();
 })();
 </script>
