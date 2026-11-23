@@ -2,14 +2,12 @@
   "name": "parthavi-forex-data-api",
   "version": "1.2.0",
   "private": true,
-  "description": "No-key indicative market data gateway and shadow research engine for PARTHAVI FOREX TRADE DESK PRO 2.0",
+  "description": "No-key primary market-data gateway with independent SiftingIO FX confirmation and shadow research engine for PARTHAVI FOREX TRADE DESK PRO 2.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check shadow-engine.js && node scripts/test-shadow-engine.cjs && node scripts/check-inline-scripts.cjs"
+    "check": "node --check server.js && node --check shadow-engine.js && node --check independent-source.js && node scripts/test-shadow-engine.cjs && node scripts/test-independent-source.cjs && node scripts/check-inline-scripts.cjs"
   },
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {}
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "^8.18.0" }
 }
