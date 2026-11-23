@@ -30,6 +30,16 @@ Biquote's terms permit using and displaying its data in web dashboards, but proh
 
 The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`) with automatic reconnect. REST quote polling is the fallback if SignalR is unavailable. The selected timeframe candles refresh every 3 minutes; the API caches quote responses for 4 seconds and candles for 60 seconds, and applies a local per-IP request cap.
 
+## Independent live-source cross-check
+
+- Independent provider: SiftingIO Forex, which publishes aggregated FX quotes derived from multiple global liquidity/reference sources. It is a separate vendor/feed from Biquote, but it is still an indicative reference price, not a broker execution quote.
+- The SiftingIO free tier is $0 with no card, supports one WebSocket connection and up to five symbol subscriptions, and is licensed for personal, non-commercial use. Its REST allowance is 10,000 calls/month. See https://sifting.io/pricing?billing=monthly&market=forex and https://sifting.io/docs/websocket.
+- The backend uses one server-side WebSocket connection and no more than five active FX symbols: four core majors plus the currently selected pair. Selecting another pair rotates that selected pair into the subscription set so the selected instrument can be cross-checked.
+- Configure the free API key as the Render API service environment variable `SIFTINGIO_API_KEY`. The key stays on the backend and is never sent to the browser. Without this variable the source is explicitly reported as `NOT_CONFIGURED`; it is not represented as live.
+- Every accepted SiftingIO tick must contain valid bid/ask values and a timestamp. A tick older than 5 seconds is stale. The selected pair's SiftingIO midpoint is compared with Biquote's midpoint; a relative gap above 0.05% blocks the direction candidate. Missing, stale, disconnected or divergent source data means WAIT.
+- The dashboard exposes `GET /api/forex/independent-source?pair=EUR/USD` for the selected pair's provider and quote status. `GET /api/forex/shadow-engine` includes source freshness and price-gap diagnostics.
+- Free-tier use is for a personal non-commercial dashboard only; do not use it to redistribute data or expose it as a customer-facing commercial feed without the provider's appropriate license.
+
 ## Integrity rules
 
 - No synthetic prices, spreads, candles, probability, or performance statistics.
