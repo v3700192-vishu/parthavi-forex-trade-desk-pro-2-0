@@ -1101,6 +1101,22 @@ const server=http.createServer(async(req,res)=>{
       });
     }
   }
+  if(url.pathname==='/api/forex/central-bank-policy') {
+    if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
+    try {
+      const data=await getPolicyRateContext(pair);
+      return respond(res,200,{
+        ok:data.status!=='PARTIAL_OR_UNAVAILABLE',
+        ...data,
+        signalEligible:false
+      });
+    } catch(error) {
+      return respond(res,Number(error.statusCode)||502,{
+        ok:false,provider:'BIS WS_CBPOL',pair,
+        error:safeError(error),status:'UNAVAILABLE',signalEligible:false
+      });
+    }
+  }
   if(url.pathname==='/api/forex/cot-positioning') {
     if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
     try {
