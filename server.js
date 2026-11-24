@@ -80,6 +80,7 @@ let bisPolicyCache = null;
 let globalRiskCache = null;
 let newsCache = null;
 let officialCentralBankNewsCache = null;
+let officialCentralBankNewsInflight = null;
 let calendarCache = null;
 const shadowEngineCache = new Map();
 const quoteCache = new Map();
@@ -584,10 +585,15 @@ async function getOfficialCentralBankNews() {
       Date.now() - officialCentralBankNewsCache.at < OFFICIAL_CENTRAL_BANK_NEWS_CACHE_MS) {
     return { ...officialCentralBankNewsCache.value, cache: 'HIT' };
   }
-  const result = await fetchCentralBankNews();
-  result.cache = 'MISS';
-  officialCentralBankNewsCache = { at: Date.now(), value: result };
-  return result;
+  if (officialCentralBankNewsInflight) return officialCentralBankNewsInflight;
+  officialCentralBankNewsInflight = fetchCentralBankNews()
+    .then(result => {
+      result.cache = 'MISS';
+      officialCentralBankNewsCache = { at: Date.now(), value: result };
+      return result;
+    })
+    .finally(() => { officialCentralBankNewsInflight = null; });
+  return officialCentralBankNewsInflight;
 }
 
 async function getNews() {
