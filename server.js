@@ -23,6 +23,7 @@ const PROVIDER_BASE = 'https://biquote.io';
 const SIFTING_REST_BASE = 'https://api.sifting.io';
 const SIFTING_REST_FALLBACK_ENABLED = process.env.SIFTINGIO_REST_FALLBACK === 'true';
 const SIFTINGIO_WS_WATCHLIST_ENABLED = process.env.SIFTINGIO_WS_WATCHLIST === 'true';
+const SIFTINGIO_WS_FIRST_QUOTES_ENABLED = process.env.SIFTINGIO_WS_FIRST_QUOTES === 'true';
 const SITE_ORIGIN = 'https://parthavi-forex-trade-desk-pro-2-0.onrender.com';
 const PAIRS = new Set(['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD']);
 const INTERVALS = new Map([
@@ -205,7 +206,7 @@ async function getQuote(pair) {
       quoteCache.set(cacheKey,{at:Date.now(),value:streamQuote});
       return streamQuote;
     }
-    if(streamQuote.status==='NOT_SUBSCRIBED') {
+    if(SIFTINGIO_WS_FIRST_QUOTES_ENABLED && streamQuote.status==='NOT_SUBSCRIBED') {
       const e=new Error('pair_not_in_current_siftingio_websocket_subscription_set_select_pair_to_activate');
       e.statusCode=503;throw e;
     }
@@ -733,6 +734,8 @@ const server=http.createServer(async(req,res)=>{
       provider:PROVIDER,providerConfigured:true,authenticationRequired:false,
       independentSource:getIndependentSourceStatus(),
       fallbackProviderConfigured:Boolean(process.env.SIFTINGIO_API_KEY&&SIFTING_REST_FALLBACK_ENABLED),
+      websocketWatchlistEnabled:SIFTINGIO_WS_WATCHLIST_ENABLED,
+      websocketFirstQuotePolicy:SIFTINGIO_WS_FIRST_QUOTES_ENABLED,
       feedMode:'Biquote primary with SiftingIO REST quote/OHLC fallback and independent WebSocket diagnostics',
       freshnessRule:'provider quoteAgeSeconds + candle timestamp checked; stale or closed market blocks signals',
       usageRights:'Provider terms permit use and display in web dashboards; do not redistribute raw feed.',
