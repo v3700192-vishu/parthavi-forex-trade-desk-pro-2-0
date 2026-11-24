@@ -7,6 +7,7 @@
 
 const { analyseDirection, walkForward, aggregateDirectionalSentiment } = require('./shadow-engine');
 const { buildCftcPositioning, CURRENCY_CONTRACTS } = require('./cftc-positioning');
+const { buildGlobalRiskContext, buildFundamentalContext } = require('./fundamental-context');
 const {
   startIndependentSource, selectIndependentPair, getIndependentQuote,
   getIndependentSourceStatus, compareIndependentQuotes
@@ -42,6 +43,9 @@ const REFERENCE_PAIRS = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/
 const REFERENCE_CACHE_MS = 15 * 60 * 1000;
 const FED_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
 const CFTC_POSITIONING_CACHE_MS = 6 * 60 * 60 * 1000;
+const GLOBAL_RISK_CACHE_MS = 6 * 60 * 60 * 1000;
+const NEWS_CACHE_MS = 5 * 60 * 1000;
+const CALENDAR_CACHE_MS = 15 * 60 * 1000;
 const SHADOW_CACHE_MS = 60 * 1000;
 const RESEARCH_CANDLE_CACHE_MS = 6 * 60 * 60 * 1000;
 const SIFTING_REST_MIN_INTERVAL_MS = 1250;
@@ -68,6 +72,9 @@ const FED_H10_SERIES = [
 let referenceCache = null;
 let fedReferenceCache = null;
 let cftcPositioningCache = null;
+let globalRiskCache = null;
+let newsCache = null;
+let calendarCache = null;
 const shadowEngineCache = new Map();
 const quoteCache = new Map();
 const candleCache = new Map();
@@ -409,6 +416,60 @@ async function fetchFredSeries(seriesId,fromDate,toDate) {
   }
   return parseFredCsv(await response.text(),seriesId);
 }
+
+async function getGlobalRiskContext() {
+  if(globalRiskCache && Date.now()-globalRiskCache.at<GLOBAL_RISK_CACHE_MS) {
+    return {...globalRiskCache.value,cache:'HIT'};
+  }
+  const toDate=new Date().toISOString().slice(0,10);
+  const fromDate=new Date(Date.now()-45*86400000).toISOString().slice(0,10);
+  const seriesIds=['DTWEXBGS','DGS2','DGS10','VIXCLS','DCOILWTICO'];
+  const results=await Promise.allSettled(seriesIds.map(id=>fetchFredSeries(id,fromDate,toDate)));
+  const series={},sourceErrors=[];
+  results.forEach((result,index)=>{
+    const id=seriesIds[index];
+    if(result.status==='fulfilled') series[id]=result.value;
+    else sourceErrors.push({seriesId:id,error:safeError(result.reason)});
+  });
+  const result=buildGlobalRiskContext(series);
+  result.sourceErrors=sourceErrors;
+  result.seriesWindowDays=45;
+  result.cache='MISS';
+  globalRiskCache={at:Date.now(),value:result};
+  return result;
+}
+
+async function getFundamentalContext(pair) {
+  const results=await Promise.allSettled([
+    getGlobalRiskContext(),
+    getCalendar(),
+    getNews()
+  ]);
+  const globalRisk=results[0].status==='fulfilled'?results[0].value:null;
+  const calendar=results[1].status==='fulfilled'?results[1].value:null;
+  const news=results[2].status==='fulfilled'?results[2].value:null;
+  const context=buildFundamentalContext({
+    globalRisk,
+    calendarItems:calendar&&Array.isArray(calendar.items)?calendar.items:[],
+    newsItems:news&&Array.isArray(news.items)?news.items:[],
+    pair
+  });
+  context.sourceStatus={
+    globalRisk:globalRisk?globalRisk.status:'UNAVAILABLE',
+    calendar:calendar?'CONNECTED':'UNAVAILABLE',
+    calendarItems:calendar&&Array.isArray(calendar.items)?calendar.items.length:0,
+    news:news?'CONNECTED':'UNAVAILABLE',
+    newsItems:news&&Array.isArray(news.items)?news.items.length:0
+  };
+  context.sourceErrors=[
+    results[0].status==='rejected'?{source:'FRED',error:safeError(results[0].reason)}:null,
+    results[1].status==='rejected'?{source:'CALENDAR',error:safeError(results[1].reason)}:null,
+    results[2].status==='rejected'?{source:'NEWS',error:safeError(results[2].reason)}:null
+  ].filter(Boolean);
+  context.fetchedAt=new Date().toISOString();
+  return context;
+}
+
 async function getFederalReserveReferenceRates() {
   if(fedReferenceCache&&Date.now()-fedReferenceCache.at<FED_REFERENCE_CACHE_MS) {
     return {...fedReferenceCache.value,cache:'HIT'};
@@ -497,6 +558,7 @@ async function getFederalReserveReferenceRates() {
 }
 
 async function getNews() {
+  if(newsCache && Date.now()-newsCache.at<NEWS_CACHE_MS) return {...newsCache.value,cache:'HIT'};
   const url=new URL('/api/news/market',PROVIDER_BASE);
   url.searchParams.set('language','en');
   url.searchParams.set('country','US');
@@ -523,13 +585,16 @@ async function getNews() {
       category:item.category?String(item.category).slice(0,80):null
     };
   }).filter(Boolean).sort((a,b)=>Date.parse(b.publishedDate)-Date.parse(a.publishedDate));
-  return {
+  const result={
     ok:true,provider:PROVIDER,items,
     fetchedAt:new Date().toISOString(),
     disclaimer:'Aggregated third-party news; headlines are context, not a directional trading signal.'
   };
+  newsCache={at:Date.now(),value:result};
+  return {...result,cache:'MISS'};
 }
 async function getCalendar() {
+  if(calendarCache && Date.now()-calendarCache.at<CALENDAR_CACHE_MS) return {...calendarCache.value,cache:'HIT'};
   const url=new URL('/api/calendar/upcoming',PROVIDER_BASE);
   url.searchParams.set('importance','medium');
   url.searchParams.set('limit','100');
@@ -558,11 +623,13 @@ async function getCalendar() {
       source:String(item.source||'').slice(0,32)
     };
   }).filter(Boolean).sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
-  return {
+  const result={
     ok:true,provider:PROVIDER,items,
     fetchedAt:new Date().toISOString(),
     disclaimer:'Economic calendar coverage depends on upstream country/source coverage. Null readings mean unpublished, not zero.'
   };
+  calendarCache={at:Date.now(),value:result};
+  return {...result,cache:'MISS'};
 }
 
 async function getSiftingCandles(pair,timeframe,spec) {
@@ -775,6 +842,10 @@ async function getShadowEngine(pair,timeframe) {
   selectIndependentPair(pair);
   const cftcPromise = getCftcPositioning().then(value => value.pairs[pair] || null)
     .catch(error => ({ pair, status: 'UNAVAILABLE', direction: 'MIXED', reason: safeError(error) }));
+  const fundamentalPromise = getFundamentalContext(pair).catch(error => ({
+    pair,decisionRole:'RESEARCH_CONTEXT_ONLY',sourceStatus:{globalRisk:'UNAVAILABLE',calendar:'UNAVAILABLE',news:'UNAVAILABLE'},
+    sourceErrors:[{source:'FUNDAMENTAL_CONTEXT',error:safeError(error)}]
+  }));
   const allPairs=[...PAIRS];
   const historyResults=await Promise.allSettled(allPairs.map(p=>getResearchCandles(p,timeframe)));
   const history=historyResults.map((result,index)=>result.status==='fulfilled'
@@ -790,6 +861,7 @@ async function getShadowEngine(pair,timeframe) {
   try { quote=await getQuote(pair); } catch(error) { /* fail closed below */ }
   const independentQuote=getIndependentQuote(pair);
   const cftcPairContext=await cftcPromise;
+  const fundamentalContext=await fundamentalPromise;
 
   const timeframeStates=currentResults.map((result,index)=>{
     if(result.status!=='fulfilled') return {timeframe:timeframes[index],direction:'WAIT',freshness:'UNAVAILABLE',reason:safeError(result.reason)};
@@ -842,7 +914,8 @@ async function getShadowEngine(pair,timeframe) {
       directionalSentiment,
       marketContext:{
         cftcPositioning:cftcPairContext,
-        cftcRole:'WEEKLY_POSITIONING_CONTEXT_ONLY'
+        cftcRole:'WEEKLY_POSITIONING_CONTEXT_ONLY',
+        fundamentals:fundamentalContext
       },
       independentSource:{
         provider:'SiftingIO',primaryProvider:quote&&quote.provider||'UNAVAILABLE',
@@ -927,6 +1000,24 @@ const server=http.createServer(async(req,res)=>{
     try { return respond(res,200,await getShadowEngine(pair,timeframe)); }
     catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,engine:'PARTHAVI SHADOW DIRECTION ENGINE',pair,timeframe,error:safeError(error),liveEligible:false,finalDecision:'WAIT'}); }
   }
+  if(url.pathname==='/api/forex/fundamental-context') {
+    if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
+    try { return respond(res,200,await getFundamentalContext(pair)); }
+    catch(error) {
+      return respond(res,Number(error.statusCode)||502,{
+        ok:false,pair,status:'UNAVAILABLE',decisionRole:'RESEARCH_CONTEXT_ONLY',
+        error:safeError(error),signalEligible:false
+      });
+    }
+  }
+  if(url.pathname==='/api/forex/global-risk') {
+    try { return respond(res,200,await getGlobalRiskContext()); }
+    catch(error) {
+      return respond(res,Number(error.statusCode)||502,{
+        ok:false,provider:'FRED',status:'UNAVAILABLE',error:safeError(error),signalEligible:false
+      });
+    }
+  }
   if(url.pathname==='/api/forex/cot-positioning') {
     if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
     try {
@@ -995,6 +1086,7 @@ async function upstreamSelfCheck() {
     ['ECB reference rates', () => getEcbReferenceRates()],
     ['Federal Reserve H10 reference rates', () => getFederalReserveReferenceRates()],
     ['CFTC TFF currency positioning', () => getCftcPositioning()],
+    ['FRED global risk context', () => getGlobalRiskContext()],
     ['EURUSD 15M candles', () => getCandles('EUR/USD','15M')],
     ['economic calendar', () => getCalendar()],
     ['market news', () => getNews()]
@@ -1011,6 +1103,8 @@ async function upstreamSelfCheck() {
       console.log('[UPSTREAM_CHECK] '+label+'=OK observationDate='+value.meta.observationDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
     } else if(label==='ECB reference rates') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK latestDate='+value.meta.latestDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
+    } else if(label==='FRED global risk context') {
+      console.log('[UPSTREAM_CHECK] '+label+'=OK series='+value.availableSeries+'/5 status='+value.status+' USD='+value.usdBias+' risk='+value.riskRegime);
     } else if(label==='CFTC TFF currency positioning') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK currencies='+value.availableCurrencies+'/7 status='+value.status+' report='+Object.values(value.currencies).filter(Boolean).map(item=>item.reportDate).sort().slice(-1)[0]);
     } else if(label==='EURUSD quote') {
