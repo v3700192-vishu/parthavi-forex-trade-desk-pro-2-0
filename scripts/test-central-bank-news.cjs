@@ -9,6 +9,8 @@ const {
 } = require('../central-bank-news');
 
 const now = Date.parse('2026-11-24T12:00:00.000Z');
+assert.equal(CENTRAL_BANK_NEWS_FEEDS.length, 9, 'seven official banks plus two RBA feeds');
+assert.equal(new Set(CENTRAL_BANK_NEWS_FEEDS.map(feed => feed.currency)).size, 8);
 const source = CENTRAL_BANK_NEWS_FEEDS.find(item => item.currency === 'USD');
 
 const rss = '<?xml version="1.0"?>\n<rss version="2.0"><channel><item>' +
@@ -99,6 +101,17 @@ const testHeadlines = {
     'dovish NZD and hawkish USD context should point lower in NZD/USD');
   assert.equal(live.pairs['EUR/USD'].signalEligible, false);
 
+  const redirectFetch = async input => {
+    if (String(input) === source.url) {
+      return { ok:true, status:200, url:'https://evil.example/redirect', text:async()=>rss };
+    }
+    return fakeFetch(input);
+  };
+  const redirected = await fetchCentralBankNews(now, redirectFetch);
+  assert.equal(redirected.currencies.USD.sourceStatus, 'UNAVAILABLE');
+  assert.equal(redirected.pairs['EUR/USD'].direction, 'WAIT',
+    'a feed redirected outside its official host must not create a currency policy score');
+
   const missingFetch = async input => {
     if (String(input).includes('rbnz.govt.nz')) {
       return { ok: false, status: 503, text: async () => '' };
@@ -111,6 +124,7 @@ const testHeadlines = {
   assert.equal(partial.currencies.NZD.sourceStatus, 'UNAVAILABLE');
   assert.equal(partial.pairs['NZD/USD'].direction, 'WAIT');
 
+  assert.throws(() => parseOfficialFeedXml('<html>not an XML feed</html>', source, now), /invalid_xml_root/);
   console.log('Official central-bank feeds, RSS/RDF/Atom parsers, policy-language scoring, pair orientation and missing-source safeguards passed.');
 })().catch(error => {
   console.error(error);
