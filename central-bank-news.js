@@ -122,8 +122,8 @@ function classifyPolicyNews(item) {
   const positive = [];
   const negative = [];
 
-  if (/\b(?:raises?|hikes?|increases?|lifts?)\b[^.]{0,90}\b(?:policy |interest |bank |cash |official )?rates?\b|\b(?:policy |interest |bank |cash |official )?rates?\b[^.]{0,90}\b(?:raised|hiked|increased|lifted)\b/i.test(text)) positive.push('POLICY_RATE_INCREASE');
-  if (/\b(?:cuts?|lowers?|reduces?|eases?)\b[^.]{0,90}\b(?:policy |interest |bank |cash |official )?rates?\b|\b(?:policy |interest |bank |cash |official )?rates?\b[^.]{0,90}\b(?:cut|lowered|reduced)\b/i.test(text)) negative.push('POLICY_RATE_DECREASE');
+  if (/\b(?:raises?|hikes?|increases?|lifts?)\b[^.]{0,90}\b(?:policy |interest |bank |cash |official )?rates?\b|\b(?:policy |interest |bank |cash |official )?rates?\b[^.]{0,90}\b(?:raised|hiked|increased|lifted)\b|\brate hikes?\b|\bhike rates?\b/i.test(text)) positive.push('POLICY_RATE_INCREASE');
+  if (/\b(?:cuts?|lowers?|reduces?|eases?)\b[^.]{0,90}\b(?:policy |interest |bank |cash |official )?rates?\b|\b(?:policy |interest |bank |cash |official )?rates?\b[^.]{0,90}\b(?:cut|lowered|reduced)\b|\brate cuts?\b|\bcut rates?\b/i.test(text)) negative.push('POLICY_RATE_DECREASE');
   if (/\bhawkish\b|\bhigher for longer\b|\bfurther (?:monetary )?tightening\b|\badditional tightening\b|\bmore restrictive (?:monetary )?policy\b/i.test(text)) positive.push('HAWKISH_POLICY_LANGUAGE');
   if (/\bdovish\b|\bpolicy easing\b|\beasing cycle\b|\bmore accommodative\b|\bmonetary accommodation\b|\bexpect(?:s|ed)? rate cuts?\b/i.test(text)) negative.push('DOVISH_POLICY_LANGUAGE');
   if (/\b(?:intervention|intervene)\b[^.]{0,100}\b(?:support|defend|strengthen|buy)\b[^.]{0,50}\b(?:currency|exchange rate|yen|franc|pound|euro|dollar)\b/i.test(text) ||
