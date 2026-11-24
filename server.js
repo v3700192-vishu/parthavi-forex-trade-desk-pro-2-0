@@ -13,10 +13,14 @@ const {
 
 const http = require('node:http');
 const { URL } = require('node:url');
+const {
+  normaliseSiftingQuote, normaliseSiftingBars, aggregateHourlyBarsTo4H
+} = require('./independent-source');
 
 const PORT = Number(process.env.PORT || 10000);
 const PROVIDER = 'Biquote';
 const PROVIDER_BASE = 'https://biquote.io';
+const SIFTING_REST_BASE = 'https://api.sifting.io';
 const SITE_ORIGIN = 'https://parthavi-forex-trade-desk-pro-2-0.onrender.com';
 const PAIRS = new Set(['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD']);
 const INTERVALS = new Map([
@@ -118,48 +122,88 @@ async function providerJson(url) {
 function safeError(error) {
   return String(error && error.message || 'upstream_unavailable').replace(/[\r\n]/g,' ').slice(0,180);
 }
+async function siftingJson(url, timeoutMs = 15000) {
+  const key=process.env.SIFTINGIO_API_KEY;
+  if(!key) { const e=new Error('siftingio_api_key_not_configured');e.statusCode=503;throw e; }
+  const response=await fetch(url,{
+    headers:{'Accept':'application/json','Accept-Encoding':'gzip','X-API-Key':key},
+    signal:AbortSignal.timeout(timeoutMs)
+  });
+  let data=null;
+  try { data=await response.json(); } catch { /* handled below */ }
+  if(!response.ok) {
+    const code=String(data&&data.error||'siftingio_http_'+response.status).slice(0,100);
+    const e=new Error(code);e.statusCode=response.status===404?404:response.status===429?429:502;throw e;
+  }
+  if(!data||typeof data!=='object') {
+    const e=new Error('siftingio_invalid_response');e.statusCode=502;throw e;
+  }
+  return data;
+}
+async function getSiftingRestQuote(pair) {
+  const url=new URL('/v1/last/quote/forex/'+symbolFor(pair),SIFTING_REST_BASE);
+  const data=await siftingJson(url,10000);
+  const normalized=normaliseSiftingQuote(pair,data);
+  if(!normalized.ok) {
+    const e=new Error('siftingio_quote_'+normalized.status.toLowerCase());e.statusCode=503;throw e;
+  }
+  const q=normalized.quote;
+  return {
+    ok:true,provider:'SiftingIO',pair,
+    quote:{
+      bid:q.bid,ask:q.ask,mid:q.mid,spread:q.spread,dayDiffPercent:null,
+      timestamp:q.timestamp,source:q.source,marketState:q.marketState,
+      stale:q.stale,ageSeconds:normalized.meta.quoteAgeSeconds
+    },
+    meta:{...normalized.meta,provider:'SiftingIO',fallbackFrom:'Biquote',safeToSignal:true,
+      disclaimer:'SiftingIO aggregated indicative reference quote; not a broker executable price.'},
+    fallbackFrom:'Biquote',
+    fetchedAt:new Date().toISOString(),cache:'MISS'
+  };
+}
 async function getQuote(pair) {
   const cacheKey=pair, cached=quoteCache.get(cacheKey);
   if(cached && Date.now()-cached.at<QUOTE_CACHE_MS) return {...cached.value,cache:'HIT'};
-  const url=new URL('/api/'+symbolFor(pair),PROVIDER_BASE);
-  const data=await providerJson(url);
-  const bid=Number(data.bid),ask=Number(data.ask),mid=Number(data.mid),spread=Number(data.spread);
-  const timestamp=parseTimestamp(data.timestamp || data.lastQuoteAt);
-  const age=Number.isFinite(Number(data.quoteAgeSeconds))
-    ?Math.max(0,Number(data.quoteAgeSeconds))
-    :Number.isFinite(timestamp)?Math.max(0,Math.floor((Date.now()-timestamp)/1000)):Infinity;
-  const numericValid=[bid,ask,mid,spread].every(Number.isFinite) && bid>0 && ask>=bid && mid>0 && spread>=0;
-  const stale=Boolean(data.stale) || data.marketState!=='open' || age>300 || !Number.isFinite(timestamp);
-  const result={
-    ok:numericValid,
-    provider:PROVIDER,
-    pair,
-    quote:{
-      bid:numericValid?bid:null,
-      ask:numericValid?ask:null,
-      mid:numericValid?mid:null,
-      spread:numericValid?spread:null,
-      dayDiffPercent:data.marketState==='open' && data.dayDiffPercent!==null && data.dayDiffPercent!==undefined && Number.isFinite(Number(data.dayDiffPercent))?Number(data.dayDiffPercent):null,
-      timestamp:Number.isFinite(timestamp)?new Date(timestamp).toISOString():null,
-      source:String(data.source || 'Biquote feed').slice(0,100),
-      marketState:String(data.marketState || 'unknown'),
-      stale,
-      ageSeconds:Number.isFinite(age)?age:null
-    },
-    meta:{
-      freshness:!stale && numericValid?'FRESH':'STALE',
-      safeToSignal:!stale && numericValid,
-      quoteAgeSeconds:Number.isFinite(age)?age:null,
-      disclaimer:'Indicative third-party broker-feed quote; not a guaranteed executable broker price.'
-    },
-    fetchedAt:new Date().toISOString(),
-    cache:'MISS'
-  };
-  if(!numericValid) {
-    const e=new Error('invalid_quote_fields');e.statusCode=422;throw e;
+  try {
+    const url=new URL('/api/'+symbolFor(pair),PROVIDER_BASE);
+    const data=await providerJson(url);
+    const bid=Number(data.bid),ask=Number(data.ask),mid=Number(data.mid),spread=Number(data.spread);
+    const timestamp=parseTimestamp(data.timestamp || data.lastQuoteAt);
+    const age=Number.isFinite(Number(data.quoteAgeSeconds))
+      ?Math.max(0,Number(data.quoteAgeSeconds))
+      :Number.isFinite(timestamp)?Math.max(0,Math.floor((Date.now()-timestamp)/1000)):Infinity;
+    const numericValid=[bid,ask,mid,spread].every(Number.isFinite) && bid>0 && ask>=bid && mid>0 && spread>=0;
+    const stale=Boolean(data.stale) || data.marketState!=='open' || age>300 || !Number.isFinite(timestamp);
+    const result={
+      ok:numericValid,provider:PROVIDER,pair,
+      quote:{
+        bid:numericValid?bid:null,ask:numericValid?ask:null,mid:numericValid?mid:null,spread:numericValid?spread:null,
+        dayDiffPercent:data.marketState==='open' && data.dayDiffPercent!==null && data.dayDiffPercent!==undefined && Number.isFinite(Number(data.dayDiffPercent))?Number(data.dayDiffPercent):null,
+        timestamp:Number.isFinite(timestamp)?new Date(timestamp).toISOString():null,
+        source:String(data.source || 'Biquote feed').slice(0,100),
+        marketState:String(data.marketState || 'unknown'),stale,ageSeconds:Number.isFinite(age)?age:null
+      },
+      meta:{
+        freshness:!stale && numericValid?'FRESH':'STALE',safeToSignal:!stale && numericValid,
+        quoteAgeSeconds:Number.isFinite(age)?age:null,provider:PROVIDER,
+        disclaimer:'Indicative third-party broker-feed quote; not a guaranteed executable broker price.'
+      },
+      fetchedAt:new Date().toISOString(),cache:'MISS'
+    };
+    if(!numericValid) { const e=new Error('invalid_quote_fields');e.statusCode=422;throw e; }
+    quoteCache.set(cacheKey,{at:Date.now(),value:result});
+    return result;
+  } catch(primaryError) {
+    try {
+      const fallback=await getSiftingRestQuote(pair);
+      fallback.meta.primaryError=safeError(primaryError);
+      quoteCache.set(cacheKey,{at:Date.now(),value:fallback});
+      return fallback;
+    } catch(fallbackError) {
+      fallbackError.primaryError=safeError(primaryError);
+      throw fallbackError;
+    }
   }
-  quoteCache.set(cacheKey,{at:Date.now(),value:result});
-  return result;
 }
 
 async function getEcbReferenceRates() {
@@ -433,13 +477,60 @@ async function getCalendar() {
   };
 }
 
+async function getSiftingCandles(pair,timeframe,spec) {
+  const interval=timeframe==='4H'?'1h':spec.upstream;
+  const intervalMs=timeframe==='5M'?300000:timeframe==='15M'?900000:timeframe==='30M'?1800000:3600000;
+  const historyBars=2000;
+  const start=new Date(Date.now()-(historyBars*intervalMs+intervalMs*3)).toISOString();
+  const url=new URL('/v1/hist/forex/'+symbolFor(pair)+'/bars',SIFTING_REST_BASE);
+  url.searchParams.set('start',start);
+  url.searchParams.set('end',new Date().toISOString());
+  url.searchParams.set('interval',interval);
+  url.searchParams.set('order','asc');
+  url.searchParams.set('limit',String(historyBars));
+  const data=await siftingJson(url,25000);
+  let candles=timeframe==='4H'
+    ?aggregateHourlyBarsTo4H(normaliseSiftingBars(data,'1H',Date.now(),historyBars),Date.now(),Math.floor(historyBars/4))
+    :normaliseSiftingBars(data,timeframe,Date.now(),historyBars);
+  if(candles.length<30) {
+    const e=new Error('siftingio_insufficient_closed_candles_'+candles.length);e.statusCode=422;throw e;
+  }
+  const last=candles[candles.length-1];
+  const ageSeconds=Math.max(0,Math.floor((Date.now()-last.timestamp)/1000));
+  const freshness=ageSeconds<=spec.maxAge?'FRESH':'STALE';
+  return {
+    ok:true,provider:'SiftingIO',pair,timeframe,interval,
+    meta:{
+      symbol:symbolFor(pair),lastCandleAt:last.time,ageSeconds,candleCount:candles.length,
+      freshness,freshnessWindowSeconds:spec.maxAge,safeToSignal:false,
+      fallbackFrom:'Biquote',
+      sourceMethod:timeframe==='4H'?'SiftingIO 1H closed OHLC bars aggregated into complete UTC 4H buckets':'SiftingIO historical closed OHLC bars; open candle excluded',
+      disclaimer:'Aggregated indicative historical FX OHLC. Tick count is not traded currency volume; price basis may differ from brokers.'
+    },
+    candles,
+    fetchedAt:new Date().toISOString(),cache:'MISS'
+  };
+}
 async function getCandles(pair,timeframe) {
   const spec=INTERVALS.get(timeframe), cacheKey=pair+'|'+timeframe, cached=candleCache.get(cacheKey);
   if(cached && Date.now()-cached.at<CANDLE_CACHE_MS) return {...cached.value,cache:'HIT'};
-  const url=new URL('/api/'+symbolFor(pair)+'/ohlc',PROVIDER_BASE);
-  url.searchParams.set('interval',spec.upstream);
-  url.searchParams.set('limit',String(spec.limit));
-  const data=await providerJson(url);
+  let data;
+  try {
+    const url=new URL('/api/'+symbolFor(pair)+'/ohlc',PROVIDER_BASE);
+    url.searchParams.set('interval',spec.upstream);
+    url.searchParams.set('limit',String(spec.limit));
+    data=await providerJson(url);
+  } catch(primaryError) {
+    try {
+      const fallback=await getSiftingCandles(pair,timeframe,spec);
+      fallback.meta.primaryError=safeError(primaryError);
+      candleCache.set(cacheKey,{at:Date.now(),value:fallback});
+      return fallback;
+    } catch(fallbackError) {
+      fallbackError.primaryError=safeError(primaryError);
+      throw fallbackError;
+    }
+  }
   if(!Array.isArray(data.bars)) {
     const e=new Error('provider_candle_array_missing');e.statusCode=422;throw e;
   }
@@ -522,14 +613,16 @@ async function getShadowEngine(pair,timeframe) {
   const independentMid=independentQuote&&independentQuote.quote?independentQuote.quote.mid:null;
   const priceAgreement=compareIndependentQuotes({mid:primaryMid},{mid:independentMid});
   const independentQuoteFresh=Boolean(independentQuote&&independentQuote.meta&&independentQuote.meta.freshness==='FRESH');
-  const independentAligned=quoteFresh&&independentQuoteFresh&&priceAgreement.aligned;
+  const primaryVendorIndependent=Boolean(quote&&quote.provider===PROVIDER);
+  const independentAligned=quoteFresh&&independentQuoteFresh&&primaryVendorIndependent&&priceAgreement.aligned;
   const shadowDirection=quoteFresh&&independentAligned&&allCandlesFresh&&aligned?directions[0]:'WAIT';
   const blockers=[];
-  if(!quoteFresh)blockers.push('Biquote live quote stale or market closed');
+  if(!quoteFresh)blockers.push('Primary live quote stale or unavailable');
   if(!allCandlesFresh)blockers.push('one or more timeframe candles stale/unavailable');
   if(!aligned)blockers.push('five-timeframe direction is mixed or incomplete');
   if(!independentQuoteFresh)blockers.push('SiftingIO independent live quote unavailable or stale');
-  else if(!quoteFresh)blockers.push('Biquote primary quote unavailable or stale; cross-source price agreement cannot be evaluated');
+  else if(!quoteFresh)blockers.push('Primary live quote unavailable; cross-source price agreement cannot be evaluated');
+  else if(!primaryVendorIndependent)blockers.push('SiftingIO REST and WebSocket are the same provider; independent second-vendor confirmation is not established');
   else if(!priceAgreement.aligned)blockers.push('Biquote and SiftingIO price divergence exceeds '+priceAgreement.maxDeviationPct+'%');
   blockers.push('68% probability calibration not established');
   const result={
@@ -543,7 +636,8 @@ async function getShadowEngine(pair,timeframe) {
       allCandlesFresh,
       fiveTimeframeAligned:aligned,
       independentSource:{
-        provider:'SiftingIO',status:!independentQuoteFresh?independentQuote.status:!quoteFresh?'PRIMARY_STALE':priceAgreement.status,
+        provider:'SiftingIO',primaryProvider:quote&&quote.provider||'UNAVAILABLE',
+        status:!independentQuoteFresh?independentQuote.status:!quoteFresh?'PRIMARY_STALE':!primaryVendorIndependent?'SAME_PROVIDER_NOT_INDEPENDENT':priceAgreement.status,
         connected:Boolean(independentQuote&&independentQuote.connected),quoteFresh:independentQuoteFresh,priceAligned:independentAligned,
         timestamp:independentQuote&&independentQuote.quote?independentQuote.quote.timestamp:null,
         ageMs:independentQuote&&independentQuote.meta?independentQuote.meta.ageMs:null,
@@ -582,7 +676,8 @@ const server=http.createServer(async(req,res)=>{
       ok:true,service:'PARTHAVI FOREX DATA API',
       provider:PROVIDER,providerConfigured:true,authenticationRequired:false,
       independentSource:getIndependentSourceStatus(),
-      feedMode:'Biquote browser SignalR + REST OHLC candles; SiftingIO server WebSocket independent live quote cross-check',
+      fallbackProviderConfigured:Boolean(process.env.SIFTINGIO_API_KEY),
+      feedMode:'Biquote primary with SiftingIO REST quote/OHLC fallback and independent WebSocket diagnostics',
       freshnessRule:'provider quoteAgeSeconds + candle timestamp checked; stale or closed market blocks signals',
       usageRights:'Provider terms permit use and display in web dashboards; do not redistribute raw feed.',
       disclaimer:'Indicative feed with no uptime SLA. Not a broker execution feed or guaranteed tradable price.',
