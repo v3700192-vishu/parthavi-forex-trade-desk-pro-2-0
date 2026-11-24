@@ -384,4 +384,79 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
   };
 }
 
-module.exports = { analyseDirection, walkForward, wilsonLowerBound, evaluateBarrierOutcome, summariseBarrierResearch };
+
+function classifyVoteSentiment(bullish, bearish, neutral, availableVotes, expectedVotes) {
+  if (!availableVotes || availableVotes < Math.ceil(expectedVotes * 0.6)) return 'MIXED';
+  const bullishPercent = bullish / availableVotes * 100;
+  const bearishPercent = bearish / availableVotes * 100;
+  if (bullishPercent >= 55 && bullishPercent - bearishPercent >= 10) return 'BULLISH';
+  if (bearishPercent >= 55 && bearishPercent - bullishPercent >= 10) return 'BEARISH';
+  return 'MIXED';
+}
+
+function aggregateDirectionalSentiment(timeframeStates) {
+  const voteKeys = ['trend', 'momentum', 'macd', 'recentPrice'];
+  const expectedVotes = 5 * voteKeys.length;
+  const totals = { bullish: 0, bearish: 0, neutral: 0 };
+  const timeframes = Array.isArray(timeframeStates) ? timeframeStates.slice(0, 5) : [];
+  const breakdown = timeframes.map(state => {
+    const counts = { bullish: 0, bearish: 0, neutral: 0 };
+    const votes = state && state.votes && typeof state.votes === 'object' ? state.votes : {};
+    for (const key of voteKeys) {
+      const vote = votes[key];
+      if (vote === 'BULLISH') counts.bullish++;
+      else if (vote === 'BEARISH') counts.bearish++;
+      else if (vote === 'NEUTRAL') counts.neutral++;
+    }
+    totals.bullish += counts.bullish;
+    totals.bearish += counts.bearish;
+    totals.neutral += counts.neutral;
+    const availableVotes = counts.bullish + counts.bearish + counts.neutral;
+    const bullishPercent = availableVotes ? Math.round(counts.bullish / availableVotes * 1000) / 10 : null;
+    const bearishPercent = availableVotes ? Math.round(counts.bearish / availableVotes * 1000) / 10 : null;
+    const neutralPercent = availableVotes ? Math.round(counts.neutral / availableVotes * 1000) / 10 : null;
+    return {
+      timeframe: state && state.timeframe || '—',
+      direction: availableVotes
+        ? classifyVoteSentiment(counts.bullish, counts.bearish, counts.neutral, availableVotes, voteKeys.length)
+        : 'WAIT',
+      bullishCount: counts.bullish,
+      bearishCount: counts.bearish,
+      neutralCount: counts.neutral,
+      availableVotes,
+      expectedVotes: voteKeys.length,
+      bullishPercent,
+      bearishPercent,
+      neutralPercent
+    };
+  });
+  const availableVotes = totals.bullish + totals.bearish + totals.neutral;
+  const bullishPercent = availableVotes ? Math.round(totals.bullish / availableVotes * 1000) / 10 : null;
+  const bearishPercent = availableVotes ? Math.round(totals.bearish / availableVotes * 1000) / 10 : null;
+  const neutralPercent = availableVotes ? Math.round(totals.neutral / availableVotes * 1000) / 10 : null;
+  const coveragePercent = Math.round(availableVotes / expectedVotes * 1000) / 10;
+  const direction = classifyVoteSentiment(
+    totals.bullish, totals.bearish, totals.neutral, availableVotes, expectedVotes
+  );
+  return {
+    direction,
+    status: !availableVotes ? 'NO_VOTES' : availableVotes < expectedVotes ? 'PARTIAL_DATA' : 'COMPLETE',
+    bullishCount: totals.bullish,
+    bearishCount: totals.bearish,
+    neutralCount: totals.neutral,
+    availableVotes,
+    expectedVotes,
+    missingVotes: expectedVotes - availableVotes,
+    bullishPercent,
+    bearishPercent,
+    neutralPercent,
+    coveragePercent,
+    minimumCoveragePercent: 60,
+    directionThresholdPercent: 55,
+    minimumLeadPercent: 10,
+    basis: 'Share of EMA trend, RSI, MACD and recent-price votes across 5M, 15M, 30M, 1H and 4H. This is indicator vote share, not probability.',
+    timeframes: breakdown
+  };
+}
+
+module.exports = { analyseDirection, walkForward, aggregateDirectionalSentiment, wilsonLowerBound, evaluateBarrierOutcome, summariseBarrierResearch };
