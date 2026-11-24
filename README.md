@@ -29,6 +29,7 @@ Supported chart intervals: 5M, 15M, 30M, 1H and 4H.
 - `GET /api/forex/reference-rates` — daily ECB reference rates for the seven supported pairs, relayed by Frankfurter; reference context only, never a live signal
 - `GET /api/forex/fed-reference-rates` — Federal Reserve H.10 weekly-published daily observations, compared with ECB rates on the same observation date; reference validation only, never a live signal
 - `GET /api/forex/cot-positioning?pair=EUR/USD` — official CFTC Traders in Financial Futures futures-only positioning for the seven USD-major currency futures, with leveraged-fund and asset-manager net positions and 52-week percentiles
+- `GET /api/forex/central-bank-policy?pair=EUR/USD` — BIS daily end-of-period policy rates for eight central banks, the base-minus-quote rate differential, recent 90-day policy-rate changes and observation freshness; higher-timeframe context only
 - `GET /api/forex/shadow-engine?pair=EUR/USD&timeframe=15M` — fixed-rule shadow direction, five-timeframe freshness/alignment and walk-forward research metrics; never a live trade signal
 
 Biquote's terms permit using and displaying its data in web dashboards, but prohibit reselling or redistributing the raw feed. Its quotes/candles are indicative third-party data, may be delayed, incomplete or wrong, and have no uptime SLA. Do not present them as guaranteed executable broker prices or regulated benchmark rates. See:
@@ -85,6 +86,15 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - CFTC reports are weekly, based on Tuesday positions and generally released Friday at 3:30 p.m. America/New_York. The dashboard labels this data as weekly positioning context, not intraday spot flow or a live trade signal.
 - The CFTC context is displayed separately and is not yet fed into the walk-forward probability model. It must be time-aligned to the Friday publication time before it can be used in any historical model training, to avoid look-ahead leakage.
 
+## BIS central-bank policy-rate context
+
+- The API reads the BIS `WS_CBPOL` daily central-bank policy-rate dataset for the United States, euro area, United Kingdom, Japan, Switzerland, Australia, New Zealand and Canada. Each country/area series is requested directly, filtered to daily annual-percent observations and cached for six hours.
+- The dashboard shows the selected pair's latest base- and quote-currency policy rates, observation dates, latest reported rate changes and the current base-minus-quote rate differential.
+- It also displays the relative change in the two policy rates over the preceding 90 days. This is labelled as monetary-policy context, not a forecast. The current differential is carry context only; markets may price future policy decisions well before rate changes occur.
+- BIS observations more than seven calendar days old are marked stale. Missing, stale or incomplete currency series must not be treated as zero or as a directional confirmation.
+- Policy-rate levels and 90-day relative moves are not yet part of the calibrated walk-forward probability model. Central-bank statements, press conferences, speeches and market-implied forward-rate expectations still require separate verified point-in-time sources.
+- Source: Bank for International Settlements, Central bank policy rates (`WS_CBPOL`): https://stats.bis.org/api/
+
 ## Risk and signal gating
 
 - ATR 14, per-bar realised volatility (20/50 closed returns) and ADX-based regime are calculated from the selected timeframe's closed candles.
@@ -93,7 +103,8 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - Daily range and session-specific volatility are not inferred because the current endpoint does not provide the required daily/session dataset.
 - Order-book liquidity is not measured because Level-2 depth is not supplied.
 - ECB and Federal Reserve H.10 rates are daily/weekly reference comparisons only; neither is an intraday directional vote.
-- Central-bank policy bias, risk sentiment, CPI/employment surprises and news sentiment are not yet verified/scored. Missing evidence remains WAIT.
+- BIS daily policy-rate levels, current pair differentials, last observed rate changes and 90-day relative policy moves are now exposed as higher-timeframe context; this does not yet score central-bank forward guidance, speeches or market-implied future-rate paths.
+- FRED risk context and calendar actual-versus-forecast surprises plus a limited USD headline keyword screen are displayed separately. They remain research context, not calibrated trade votes or probability inputs. Missing evidence remains WAIT.
 - No trade forecast or probability is issued until an independent permitted live-price source, all required risk checks, and out-of-sample calibration at or above the 68% threshold are demonstrated.
 
 ## Shadow prediction engine and forward evaluation
