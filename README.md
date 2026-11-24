@@ -58,6 +58,15 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - No broker order execution is implemented.
 - EMA, RSI, MACD, ATR, Bollinger Bands and Wilder ADX 14 are computed from returned closed OHLC candles. Confirmed swing points, BOS/CHoCH, support/resistance, 20-bar breakout checks and ATR distance planning are displayed as analytical context only. Real traded FX volume is not inferred from tick volume.
 
+## Daily macro and economic-surprise context
+
+- The API caches five public FRED CSV series for six hours: DTWEXBGS (broad trade-weighted USD index), DGS2 and DGS10 (Treasury yields), VIXCLS (VIX), and DCOILWTICO (WTI crude oil).
+- Broad USD context combines the broad USD-index move and 2-year yield move over five observations. VIX level and its five-observation change produce a coarse risk-regime label. These are transparent macro context heuristics, not calibrated forecasts.
+- Economic-calendar events are scored only when actual and forecast values are both present, the event is in the past, its importance is known, and its name matches an explicit macro-event rule. The current event window is 72 hours with time decay.
+- Higher inflation is treated as a possible hawkish-expectations channel, not a guaranteed currency-positive reaction. Unemployment-rate and claims surprises use inverted polarity. Growth, activity and policy-rate surprises use a stronger-activity/higher-rate polarity.
+- The current market-news feed is a limited US headline sample. Only explicit Fed/rates, inflation, employment and Treasury-yield phrases are classified; this is low-confidence keyword research context, not NLP sentiment or a directional vote.
+- Global macro, event-surprise and headline context is displayed separately from the technical vote-share panel. It is not yet included in the walk-forward probability model; adding it to the calibrated model requires point-in-time historical features and out-of-sample validation.
+
 ## Weekly CFTC positioning intelligence
 
 - The API reads the official CFTC Public Reporting Environment TFF futures-only dataset (gpe5-46if) without an API token, selecting the seven CME currency futures contracts: EUR 099741, GBP 096742, JPY 097741, CHF 092741, AUD 232741, NZD 112741 and CAD 090741.
