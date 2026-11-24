@@ -26,7 +26,7 @@ const SITE_ORIGIN = 'https://parthavi-forex-trade-desk-pro-2-0.onrender.com';
 const PAIRS = new Set(['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD']);
 const INTERVALS = new Map([
   ['5M', { upstream:'5m', seconds:300, maxAge:900, limit:288 }],
-  ['15M',{ upstream:'15m',seconds:900, maxAge:1800,limit:192 }],
+  ['15M',{ upstream:'15m',seconds:900, maxAge:2400,limit:192 }],
   ['30M',{ upstream:'30m',seconds:1800,maxAge:3600,limit:192 }],
   ['1H', { upstream:'1h', seconds:3600,maxAge:7200,limit:168 }],
   ['4H', { upstream:'4h', seconds:14400,maxAge:28800,limit:180 }]
@@ -39,6 +39,8 @@ const REFERENCE_PAIRS = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/
 const REFERENCE_CACHE_MS = 15 * 60 * 1000;
 const FED_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
 const SHADOW_CACHE_MS = 60 * 1000;
+const RESEARCH_CANDLE_CACHE_MS = 24 * 60 * 60 * 1000;
+const researchCandleCache = new Map();
 const FED_H10_SERIES = [
   ['EUR/USD','DEXUSEU'],
   ['GBP/USD','DEXUSUK'],
@@ -163,6 +165,7 @@ async function getSiftingRestQuote(pair) {
   };
 }
 async function getQuote(pair) {
+  selectIndependentPair(pair);
   const cacheKey=pair, cached=quoteCache.get(cacheKey);
   if(cached && Date.now()-cached.at<QUOTE_CACHE_MS) return {...cached.value,cache:'HIT'};
   try {
@@ -195,6 +198,12 @@ async function getQuote(pair) {
     quoteCache.set(cacheKey,{at:Date.now(),value:result});
     return result;
   } catch(primaryError) {
+    const streamQuote=independentQuoteAsApiQuote(pair);
+    if(streamQuote.meta&&streamQuote.meta.freshness==='FRESH') {
+      streamQuote.meta.fallbackFrom='Biquote REST via SiftingIO WebSocket';
+      quoteCache.set(cacheKey,{at:Date.now(),value:streamQuote});
+      return streamQuote;
+    }
     if(!SIFTING_REST_FALLBACK_ENABLED) throw primaryError;
     try {
       const fallback=await getSiftingRestQuote(pair);
@@ -515,7 +524,12 @@ async function getSiftingCandles(pair,timeframe,spec) {
 }
 async function getCandles(pair,timeframe) {
   const spec=INTERVALS.get(timeframe), cacheKey=pair+'|'+timeframe, cached=candleCache.get(cacheKey);
-  if(cached && Date.now()-cached.at<CANDLE_CACHE_MS) return {...cached.value,cache:'HIT'};
+  const siftingTtl={
+    '5M':9*60*1000,'15M':20*60*1000,'30M':30*60*1000,
+    '1H':60*60*1000,'4H':4*60*60*1000
+  };
+  const cacheTtl=cached&&cached.value.provider==='SiftingIO'?(siftingTtl[timeframe]||CANDLE_CACHE_MS):CANDLE_CACHE_MS;
+  if(cached && Date.now()-cached.at<cacheTtl) return {...cached.value,cache:'HIT'};
   let data;
   try {
     const url=new URL('/api/'+symbolFor(pair)+'/ohlc',PROVIDER_BASE);
@@ -573,18 +587,47 @@ async function getCandles(pair,timeframe) {
   return result;
 }
 
+async function getResearchCandles(pair,timeframe) {
+  const key=pair+'|'+timeframe, cached=researchCandleCache.get(key);
+  if(cached&&Date.now()-cached.at<RESEARCH_CANDLE_CACHE_MS) return {...cached.value,cache:'RESEARCH_HIT'};
+  const value=await getCandles(pair,timeframe);
+  researchCandleCache.set(key,{at:Date.now(),value});
+  if(researchCandleCache.size>100) {
+    for(const [entry,item] of researchCandleCache) {
+      if(Date.now()-item.at>RESEARCH_CANDLE_CACHE_MS) researchCandleCache.delete(entry);
+    }
+  }
+  return {...value,cache:'RESEARCH_MISS'};
+}
+function independentQuoteAsApiQuote(pair) {
+  const value=getIndependentQuote(pair);
+  if(!value||!value.ok||!value.quote) return {
+    ok:false,provider:'SiftingIO',pair,status:value&&value.status||'WAIT',
+    meta:{freshness:'STALE',safeToSignal:false},
+    quote:{marketState:'unknown',stale:true}
+  };
+  const q=value.quote,ageSeconds=Math.max(0,Math.floor(Number(q.ageMs||0)/1000));
+  return {
+    ok:true,provider:'SiftingIO',pair,
+    quote:{
+      bid:q.bid,ask:q.ask,mid:q.mid,spread:q.ask-q.bid,dayDiffPercent:null,
+      timestamp:q.timestamp,source:q.source,marketState:'open',stale:false,ageSeconds
+    },
+    meta:{freshness:'FRESH',safeToSignal:true,quoteAgeSeconds:ageSeconds,provider:'SiftingIO'}
+  };
+}
 async function getShadowEngine(pair,timeframe) {
   const key=pair+'|'+timeframe, cached=shadowEngineCache.get(key);
   if(cached && Date.now()-cached.at<SHADOW_CACHE_MS) return {...cached.value,cache:'HIT'};
 
   selectIndependentPair(pair);
   const allPairs=[...PAIRS];
-  const historyResults=await Promise.allSettled(allPairs.map(p=>getCandles(p,timeframe)));
+  const historyResults=await Promise.allSettled(allPairs.map(p=>getResearchCandles(p,timeframe)));
   const history=historyResults.map((result,index)=>result.status==='fulfilled'
     ?{pair:allPairs[index],candles:result.value.candles}
     :{pair:allPairs[index],candles:[]});
-  const selectedHistory=historyResults.find((result,index)=>allPairs[index]===pair);
-  const selectedCandles=selectedHistory&&selectedHistory.status==='fulfilled'?selectedHistory.value:null;
+  const selectedCandlesResult=await getCandles(pair,timeframe).then(value=>({status:'fulfilled',value})).catch(reason=>({status:'rejected',reason}));
+  const selectedCandles=selectedCandlesResult.status==='fulfilled'?selectedCandlesResult.value:null;
   const timeframes=[...INTERVALS.keys()];
   const currentResults=await Promise.allSettled(timeframes.map(tf=>
     tf===timeframe&&selectedCandles?Promise.resolve(selectedCandles):getCandles(pair,tf)
@@ -693,6 +736,22 @@ const server=http.createServer(async(req,res)=>{
     if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
     selectIndependentPair(pair);
     return respond(res,200,{ok:true,source:getIndependentSourceStatus(),quote:getIndependentQuote(pair)});
+  }
+  if(url.pathname==='/api/forex/watchlist-quotes') {
+    selectIndependentPair(pair||'EUR/USD');
+    const quotes=Object.fromEntries([...PAIRS].map(symbol=>[symbol,independentQuoteAsApiQuote(symbol)]));
+    return respond(res,200,{
+      ok:true,provider:'SiftingIO',selectedPair:pair||'EUR/USD',
+      source:getIndependentSourceStatus(),quotes,
+      note:'Five WebSocket subscriptions are available on the free tier. Unsubscribed pairs are intentionally returned as WAIT; selecting a pair rotates it into the live subscription set.'
+    });
+  }
+  if(url.pathname==='/api/forex/research-candles') {
+    if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
+    const timeframe=String(url.searchParams.get('timeframe')||'15M').toUpperCase();
+    if(!INTERVALS.has(timeframe)) return respond(res,400,{ok:false,error:'unsupported_timeframe'});
+    try { return respond(res,200,await getResearchCandles(pair,timeframe)); }
+    catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,provider:'historical_research',pair,timeframe,error:safeError(error)}); }
   }
   if(url.pathname==='/api/forex/shadow-engine') {
     if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
