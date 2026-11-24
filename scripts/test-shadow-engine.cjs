@@ -53,9 +53,7 @@ assert.equal(bearishSentiment.direction, 'BEARISH');
 assert.equal(bearishSentiment.bearishPercent, 100);
 
 const mixedSentiment = aggregateDirectionalSentiment(
-  timeframesForVotes.map((timeframe, index) => index % 2
-    ? makeVoteState(timeframe, 0, 2, 2)
-    : makeVoteState(timeframe, 2, 0, 2))
+  timeframesForVotes.map(timeframe => makeVoteState(timeframe, 2, 1, 1))
 );
 assert.equal(mixedSentiment.direction, 'MIXED');
 assert.equal(mixedSentiment.bullishPercent, 50);
