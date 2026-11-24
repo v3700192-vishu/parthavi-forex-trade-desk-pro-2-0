@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { analyseDirection, walkForward, wilsonLowerBound, evaluateBarrierOutcome } = require('../shadow-engine');
+const { analyseDirection, walkForward, wilsonLowerBound, evaluateBarrierOutcome, summariseBarrierResearch } = require('../shadow-engine');
 
 function makeTrendBars(count = 240, direction = 1) {
   const bars = [];
@@ -24,8 +24,10 @@ assert.equal(analyseDirection(up).direction, 'BULLISH');
 assert.equal(analyseDirection(down).direction, 'BEARISH');
 assert.equal(analyseDirection(up.slice(0, 30)).direction, 'WAIT');
 
-const research = walkForward([{ pair: 'EUR/USD', candles: up }]);
+const research = walkForward([{ pair: 'EUR/USD', provider: 'SiftingIO', candles: up }]);
 assert.equal(research.horizonBars, 3);
+assert.deepEqual(research.providers, ['SiftingIO']);
+assert.equal(research.byPair[0].provider, 'SiftingIO');
 assert.ok(research.evaluated > 0 && research.evaluated < 200);
 assert.ok(research.accuracy >= 0 && research.accuracy <= 1);
 assert.ok(research.lower95 >= 0 && research.lower95 <= 1);
@@ -70,5 +72,23 @@ assert.equal(research.barrierResearch.evaluated, research.evaluated);
 assert.ok(research.barrierResearch.averageMfeR >= 0);
 assert.ok(research.barrierResearch.averageMaeR >= 0);
 assert.equal(research.validated, false, 'barrier outcomes do not establish calibrated probability');
+
+const denominatorCheck = summariseBarrierResearch({
+  evaluated: 10,
+  targetFirst: 4,
+  stopFirst: 3,
+  ambiguousSameBar: 2,
+  noTouch: 1,
+  mfeRSum: 6,
+  maeRSum: 5,
+  excursionSamples: 10,
+  noTouchCloseRSum: 0.25,
+  noTouchCloseSamples: 1
+});
+assert.equal(denominatorCheck.barrierResolved, 7, 'ambiguous same-bar cases must not count as resolved');
+assert.equal(denominatorCheck.targetFirstRateAmongResolved, 4 / 7);
+assert.equal(denominatorCheck.targetFirstRateOfAll, 0.4);
+assert.equal(denominatorCheck.ambiguousSameBar, 2);
+
 
 console.log('Shadow engine direction, walk-forward, barrier, MFE/MAE and probability-gate tests passed.');
