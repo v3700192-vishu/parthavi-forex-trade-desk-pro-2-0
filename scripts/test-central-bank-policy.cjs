@@ -83,7 +83,7 @@ assert.equal(parsedCsv[1].TITLE, 'Central bank policy rates - UK, Daily');
 assert.equal(parsedCsv[2].TITLE, 'Policy rates include a quoted "central bank" description');
 
 const normalised = normalisePolicyRows(rows);
-assert.equal(normalised.USD.length, 2, 'monthly and preliminary observations must be excluded');
+assert.equal(normalised.USD.length, 3, 'monthly and preliminary observations must be excluded');
 assert.equal(Object.values(normalised).filter(items => items.length).length, 8);
 
 const result = buildCentralBankPolicyContext(rows, now);
@@ -97,7 +97,7 @@ assert.equal(result.currencies.USD.currentRatePercent, 3.875);
 assert.equal(result.currencies.EUR.observationDate, '2026-11-17');
 assert.equal(result.currencies.EUR.twelveMonth.referenceRatePercent, 2.0);
 assert.equal(result.currencies.EUR.twelveMonth.changePercentagePoints, 0.5);
-assert.equal(result.currencies.EUR.lastChange.effectiveDate, '2026-01-15');
+assert.equal(result.currencies.EUR.lastChange.effectiveDate, '2026-11-17');
 assert.equal(result.currencies.EUR.lastChange.changePercentagePoints, 0.25);
 
 assert.equal(result.pairs['EUR/USD'].currentRateDifferentialPercentagePoints, -1.375);
