@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { analyseDirection, walkForward, wilsonLowerBound, evaluateBarrierOutcome, summariseBarrierResearch } = require('../shadow-engine');
+const { analyseDirection, walkForward, aggregateDirectionalSentiment, wilsonLowerBound, evaluateBarrierOutcome, summariseBarrierResearch } = require('../shadow-engine');
 
 function makeTrendBars(count = 240, direction = 1) {
   const bars = [];
@@ -23,6 +23,55 @@ const down = makeTrendBars(240, -1);
 assert.equal(analyseDirection(up).direction, 'BULLISH');
 assert.equal(analyseDirection(down).direction, 'BEARISH');
 assert.equal(analyseDirection(up.slice(0, 30)).direction, 'WAIT');
+
+
+const timeframesForVotes = ['5M', '15M', '30M', '1H', '4H'];
+const makeVoteState = (timeframe, bullish, bearish, neutral) => {
+  const votes = {};
+  const values = [
+    ...Array(bullish).fill('BULLISH'),
+    ...Array(bearish).fill('BEARISH'),
+    ...Array(neutral).fill('NEUTRAL')
+  ];
+  ['trend', 'momentum', 'macd', 'recentPrice'].forEach((key, index) => {
+    if (values[index]) votes[key] = values[index];
+  });
+  return { timeframe, votes };
+};
+const bullishSentiment = aggregateDirectionalSentiment(
+  timeframesForVotes.map(timeframe => makeVoteState(timeframe, 4, 0, 0))
+);
+assert.equal(bullishSentiment.direction, 'BULLISH');
+assert.equal(bullishSentiment.bullishPercent, 100);
+assert.equal(bullishSentiment.availableVotes, 20);
+assert.equal(bullishSentiment.coveragePercent, 100);
+
+const bearishSentiment = aggregateDirectionalSentiment(
+  timeframesForVotes.map(timeframe => makeVoteState(timeframe, 0, 4, 0))
+);
+assert.equal(bearishSentiment.direction, 'BEARISH');
+assert.equal(bearishSentiment.bearishPercent, 100);
+
+const mixedSentiment = aggregateDirectionalSentiment(
+  timeframesForVotes.map(timeframe => makeVoteState(timeframe, 2, 1, 1))
+);
+assert.equal(mixedSentiment.direction, 'MIXED');
+assert.equal(mixedSentiment.bullishPercent, 50);
+assert.equal(mixedSentiment.bearishPercent, 25);
+assert.equal(mixedSentiment.neutralPercent, 25);
+
+const partialSentiment = aggregateDirectionalSentiment([
+  makeVoteState('5M', 4, 0, 0)
+]);
+assert.equal(partialSentiment.direction, 'MIXED', 'one timeframe alone must not claim an overall direction');
+assert.equal(partialSentiment.coveragePercent, 20);
+assert.equal(partialSentiment.missingVotes, 16);
+assert.equal(partialSentiment.expectedVotes, 20);
+
+const noSentiment = aggregateDirectionalSentiment([]);
+assert.equal(noSentiment.direction, 'MIXED');
+assert.equal(noSentiment.bullishPercent, null);
+assert.equal(noSentiment.status, 'NO_VOTES');
 
 const research = walkForward([{ pair: 'EUR/USD', provider: 'SiftingIO', candles: up }]);
 assert.equal(research.horizonBars, 3);
