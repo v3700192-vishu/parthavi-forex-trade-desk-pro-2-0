@@ -620,6 +620,13 @@ body{color:#fff!important}
       <div class="forecastcell"><small>CFTC REPORT DATE · TUESDAY</small><b id="cotReportDate">—</b></div>
      </div>
      <div class="sentiment-footnote" id="cotPositioningNote">CFTC is delayed weekly futures-positioning context, not live spot order flow or an intraday trading signal.</div>
+     <div class="forecastgrid" style="margin-top:9px">
+      <div class="forecastcell"><small>FRED · USD MACRO BIAS</small><b id="fundamentalUsdBias">WAIT</b></div>
+      <div class="forecastcell"><small>GLOBAL RISK REGIME · VIX</small><b id="fundamentalRiskRegime">WAIT</b></div>
+      <div class="forecastcell"><small>ECONOMIC SURPRISE CONTEXT</small><b id="fundamentalEventBias">WAIT</b></div>
+      <div class="forecastcell"><small>USD HEADLINE SCREEN</small><b id="fundamentalNewsBias">WAIT</b></div>
+     </div>
+     <div class="sentiment-footnote" id="fundamentalContextNote">Macro, event surprises and headline matches are research context only—not calibrated probability or trade votes.</div>
     </section>
     <div class="forecastgrid" style="margin-top:9px">
      <div class="forecastcell"><small>INDEPENDENT SOURCE · SIFTINGIO</small><b id="independentSourceStatus">API KEY REQUIRED</b></div>
@@ -1808,6 +1815,25 @@ body{color:#fff!important}
  }
  
 
+
+function renderFundamentalContext(context){
+  const value=context&&typeof context==='object'?context:{};
+  const global=value.globalRisk||{},events=value.economicSurprises||{},news=value.usdNews||{};
+  const sources=value.sourceStatus||{};
+  const macroBias=global.usdPairBias||'MIXED';
+  setNodeText('fundamentalUsdBias',macroBias+' · USD '+String(global.usdBias||'MIXED'));
+  setNodeText('fundamentalRiskRegime',String(global.riskRegime||'UNAVAILABLE').replaceAll('_',' '));
+  setNodeText('fundamentalEventBias',String(events.direction||'MIXED')+' · '+String(events.eventCount||0)+' events');
+  setNodeText('fundamentalNewsBias',String(news.pairBias||'MIXED')+' · '+String(news.matchedHeadlines||0)+' matched');
+  const status='FRED '+String(sources.globalRisk||'UNAVAILABLE')+
+    ' · CALENDAR '+String(sources.calendar||'UNAVAILABLE')+
+    ' ('+String(sources.calendarItems||0)+') · NEWS '+String(sources.news||'UNAVAILABLE')+
+    ' ('+String(sources.newsItems||0)+')';
+  setNodeText('fundamentalContextNote',status+'. Economic surprises require actual and forecast values. Headline matches are keyword-only. Context is not used as a calibrated trade vote.');
+  const node=$('#fundamentalUsdBias');
+  if(node)node.style.color=macroBias==='BULLISH'?'#8ff0c6':macroBias==='BEARISH'?'#ff9ba2':'#ffe39a';
+}
+
 function renderCftcPositioning(context){
   const value=context&&typeof context==='object'?context:{};
   const valid=['FRESH_WEEKLY','STALE_WEEKLY'].includes(value.status);
@@ -1883,6 +1909,7 @@ function renderShadowEngine(data){
   if(tfNode)tfNode.textContent=(live.timeframes||[]).map(x=>x.timeframe+': '+x.direction+' ('+x.freshness+')').join('  |  ');
   renderDirectionalSentiment(live.directionalSentiment,data.pair);
   renderCftcPositioning(live.marketContext&&live.marketContext.cftcPositioning);
+  renderFundamentalContext(live.marketContext&&live.marketContext.fundamentals);
   if(live.independentSource){
    const independent=live.independentSource;
    setNodeText('independentSourceStatus',independent.status||'WAIT');
@@ -2052,6 +2079,7 @@ function renderShadowEngine(data){
    setNodeText('shadowCandidate','WAIT · SHADOW ENGINE ERROR');
    renderDirectionalSentiment(null,pairNow());
    renderCftcPositioning(null);
+   renderFundamentalContext(null);
    setNodeText('shadowFinalGate','FINAL: WAIT · '+String(error.message||'engine_unavailable'));
   }finally{shadowEngineBusy=false;}
  }
