@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const { analyseDirection, walkForward } = require('./shadow-engine');
+const { analyseDirection, walkForward, aggregateDirectionalSentiment } = require('./shadow-engine');
 const {
   startIndependentSource, selectIndependentPair, getIndependentQuote,
   getIndependentSourceStatus, compareIndependentQuotes
@@ -754,6 +754,7 @@ async function getShadowEngine(pair,timeframe) {
       metrics:analysis.metrics||null
     };
   });
+  const directionalSentiment=aggregateDirectionalSentiment(timeframeStates);
   const research=walkForward(history);
   research.providers=[...new Set(history.map(item=>item.provider).filter(provider=>provider&&provider!=='UNAVAILABLE'))];
   research.sourceRole='HISTORICAL_RESEARCH_ONLY';
@@ -787,6 +788,7 @@ async function getShadowEngine(pair,timeframe) {
       quoteFresh,
       allCandlesFresh,
       fiveTimeframeAligned:aligned,
+      directionalSentiment,
       independentSource:{
         provider:'SiftingIO',primaryProvider:quote&&quote.provider||'UNAVAILABLE',
         status:!independentQuoteFresh?independentQuote.status:!quoteFresh?'PRIMARY_STALE':!primaryVendorIndependent?'SAME_PROVIDER_NOT_INDEPENDENT':priceAgreement.status,
