@@ -1306,9 +1306,10 @@ body{color:#fff!important}
    currentCandlesMeta=data.meta||null;
    const structureTag=$('#structureDataState');if(structureTag)structureTag.textContent=data.meta.freshness==='FRESH'?'FRESH CLOSED BARS':'HISTORICAL · STALE';
    renderChart(candles,pair);renderIndicators(candles,pair);renderMarketStructure(candles,pair);renderRiskPlanner(candles,pair);renderVolatilityAndRisk(candles,pair,data.meta);renderSourceAgreement(candles,pair,data.meta);
+   const chartFoot=document.querySelectorAll('.chartfoot span');if(chartFoot.length)chartFoot[0].textContent='SOURCE: '+(data.provider||'UNKNOWN')+' · INDICATIVE';
    const quote=quoteStates.get(pair);
    if(data.meta.freshness==='FRESH'&&quote?.freshness==='FRESH'){
-    connector('FRESH DATA · SIGNAL BLOCKED','Fresh quote and closed OHLC candles loaded from Biquote. This is one indicative source only; forecast remains WAIT pending independent-source agreement and out-of-sample validation.',true);
+    connector('FRESH DATA · SIGNAL BLOCKED','Fresh quote and closed OHLC candles loaded from '+(data.provider||'UNKNOWN')+'. This indicative feed is not a second independent provider; final trade remains WAIT pending separate-source confirmation and calibrated validation.',true);
    }else{
     connector('WAIT · DATA NOT FRESH','Quote or candle data is stale/closed. Indicators may describe historical candles, but a trade forecast stays WAIT.',false);
    }
@@ -1545,7 +1546,7 @@ body{color:#fff!important}
    values.ema.push(summary?prefix+summary.emaTrend:'—');
    values.momentum.push(summary?prefix+summary.momentum:'—');
    values.structure.push(summary?prefix+summary.structure:'—');
-   values.source.push('BIQUOTE ONLY');
+   values.source.push((result.provider||'UNKNOWN').toUpperCase()+' · INDICATIVE');
   });
   paintMtfRow('direction',values.direction);
   paintMtfRow('ema',values.ema);
@@ -1716,7 +1717,7 @@ body{color:#fff!important}
   crossPairAnalyticsBusy=true;
   try{
    const results=await Promise.all(PAIRS.map(async pair=>{
-    try{return await requestJson('/api/forex/candles?pair='+encodeURIComponent(pair)+'&timeframe=15M',20000);}
+    try{return await requestJson('/api/forex/research-candles?pair='+encodeURIComponent(pair)+'&timeframe=15M',25000);}
     catch(error){return {ok:false,pair,error:String(error.message||'unavailable')};}
    }));
    renderCrossPairAnalytics(buildCrossPairAnalytics(results));
@@ -1900,7 +1901,19 @@ body{color:#fff!important}
    setNodeText('shadowFinalGate','FINAL: WAIT · '+String(error.message||'engine_unavailable'));
   }finally{shadowEngineBusy=false;}
  }
- async function loadWatchlist(){if(!apiReady)return;await Promise.all(PAIRS.map(pair=>loadQuote(pair,true)));}
+ async function loadWatchlist(){
+  if(!apiReady)return;
+  try{
+   const data=await requestJson('/api/forex/watchlist-quotes?pair='+encodeURIComponent(pairNow()),12000);
+   PAIRS.forEach(pair=>{
+    const quote=data.quotes&&data.quotes[pair];
+    if(quote&&quote.meta&&quote.meta.freshness==='FRESH')applyQuote(pair,quote,'SIFTINGIO WEBSOCKET');
+    else setWatchError(pair,quote&&quote.status==='NOT_SUBSCRIBED'?'SELECT FOR LIVE':'WAIT · NO FRESH TICK');
+   });
+  }catch(error){
+   PAIRS.forEach(pair=>{if(!quoteStates.get(pair)?.quote)setWatchError(pair,'WAIT');});
+  }
+ }
  async function refreshSelected(){if(!apiReady)return;await Promise.all([loadQuote(pairNow(),false),loadCandles(pairNow(),tfNow())]);}
  async function init(){
   if(await getStatus()){
@@ -1913,7 +1926,7 @@ body{color:#fff!important}
   setInterval(()=>{if(apiReady&&!quoteStreamConnected)loadQuote(pairNow(),false);},QUOTE_REFRESH_MS);
   setInterval(()=>{if(apiReady)refreshQuoteAges();},5000);
   setInterval(()=>{if(apiReady)loadCalendar();},900000);
-  setInterval(()=>{if(apiReady)loadCrossPairAnalytics();},900000);
+  setInterval(()=>{if(apiReady)loadCrossPairAnalytics();},3600000);
   setInterval(()=>{if(apiReady)loadMarketNews();},300000);
   setInterval(()=>{if(apiReady)loadEcbReferenceRates();},900000);
   setInterval(()=>{if(apiReady)loadFedReferenceRates();},21600000);
@@ -1923,9 +1936,9 @@ body{color:#fff!important}
   setInterval(()=>{if(apiReady)loadIndependentSource();},5000);
   setInterval(async()=>{if(!apiReady)await getStatus();},60000);
  }
- $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadIndependentSource();loadShadowEngine();if(crossPairAnalytics)renderCrossPairAnalytics(crossPairAnalytics);},0));
+ $('#pairSelect')?.addEventListener('change',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadWatchlist();loadIndependentSource();loadShadowEngine();if(crossPairAnalytics)renderCrossPairAnalytics(crossPairAnalytics);},0));
  document.querySelectorAll('#tfbar button').forEach(button=>button.addEventListener('click',()=>setTimeout(()=>{refreshSelected();loadShadowEngine();},0)));
- document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadIndependentSource();loadShadowEngine();},0)));
+ document.querySelectorAll('[data-pair-row]').forEach(row=>row.addEventListener('click',()=>setTimeout(()=>{refreshSelected();loadMultiTimeframe(pairNow());loadWatchlist();loadIndependentSource();loadShadowEngine();},0)));
  init();
 })();
 </script>
