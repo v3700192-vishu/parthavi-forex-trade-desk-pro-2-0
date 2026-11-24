@@ -62,6 +62,92 @@ function selectIndependentPair(value) {
   if (authenticated && added.length) safeSend({ op: 'subscribe', product: 'fx', symbols: added });
   return { ok: true, selectedPair, subscribedPairs: [...activePairs] };
 }
+function normaliseSiftingQuote(pair, data, now = Date.now()) {
+  const normalized = normalisePair(pair);
+  const expected = normalized ? symbolFor(normalized) : null;
+  const symbol = String(data && data.s || '').toUpperCase();
+  const bid = Number(data && data.b), ask = Number(data && data.a);
+  const timestampMs = Number(data && data.t);
+  if (!normalized || symbol !== expected || !Number.isFinite(bid) || !Number.isFinite(ask) ||
+      bid <= 0 || ask < bid || !Number.isFinite(timestampMs) || timestampMs <= 0) {
+    return { ok: false, provider: PROVIDER, pair: normalized, status: 'INVALID_QUOTE' };
+  }
+  const ageMs = now - timestampMs;
+  const fresh = ageMs >= -1000 && ageMs <= MAX_TICK_AGE_MS;
+  return {
+    ok: fresh,
+    provider: PROVIDER,
+    pair: normalized,
+    status: fresh ? 'FRESH' : 'STALE',
+    quote: {
+      bid, ask, mid: (bid + ask) / 2, spread: ask - bid,
+      timestamp: new Date(timestampMs).toISOString(),
+      ageMs,
+      source: 'SiftingIO REST top-of-book quote',
+      marketState: fresh ? 'open' : 'unknown',
+      stale: !fresh
+    },
+    meta: {
+      freshness: fresh ? 'FRESH' : 'STALE',
+      safeToSignal: fresh,
+      quoteAgeSeconds: Math.max(0, Math.floor(ageMs / 1000)),
+      ageMs
+    }
+  };
+}
+
+const BAR_INTERVAL_MS = new Map([
+  ['5M', 300000], ['15M', 900000], ['30M', 1800000], ['1H', 3600000]
+]);
+function normaliseSiftingBars(data, timeframe, now = Date.now(), maxBars = 2000) {
+  const intervalMs = BAR_INTERVAL_MS.get(String(timeframe || '').toUpperCase());
+  if (!intervalMs || !data || !Array.isArray(data.data)) return [];
+  return data.data.map(bar => {
+    const timestamp = Number(bar && bar.t);
+    const open = Number(bar && bar.o), high = Number(bar && bar.h);
+    const low = Number(bar && bar.l), close = Number(bar && bar.c);
+    const volume = Number(bar && bar.v);
+    const valid = Number.isFinite(timestamp) && timestamp > 0 &&
+      [open, high, low, close].every(Number.isFinite) &&
+      open > 0 && high >= Math.max(open, close, low) &&
+      low <= Math.min(open, close, high);
+    return valid ? {
+      time: new Date(timestamp).toISOString(), timestamp,
+      open, high, low, close,
+      tickVolume: Number.isFinite(volume) && volume >= 0 ? volume : null,
+      isOpen: timestamp + intervalMs > now
+    } : null;
+  }).filter(bar => bar && !bar.isOpen)
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .slice(-Math.max(1, Math.min(2000, Number(maxBars) || 2000)));
+}
+
+function aggregateHourlyBarsTo4H(hourlyBars, now = Date.now(), maxBars = 2000) {
+  const oneHour = 3600000, fourHours = 4 * oneHour;
+  const groups = new Map();
+  for (const bar of (Array.isArray(hourlyBars) ? hourlyBars : [])) {
+    const timestamp = Number(bar && bar.timestamp);
+    if (!Number.isFinite(timestamp) || timestamp <= 0 || timestamp + oneHour > now) continue;
+    const bucket = Math.floor(timestamp / fourHours) * fourHours;
+    if (!groups.has(bucket)) groups.set(bucket, []);
+    groups.get(bucket).push(bar);
+  }
+  return [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([bucket, bars]) => {
+    bars.sort((a, b) => a.timestamp - b.timestamp);
+    if (bars.length !== 4 || bars.some((bar, index) => bar.timestamp !== bucket + index * oneHour) ||
+        bucket + fourHours > now) return null;
+    return {
+      time: new Date(bucket).toISOString(), timestamp: bucket,
+      open: Number(bars[0].open),
+      high: Math.max(...bars.map(bar => Number(bar.high))),
+      low: Math.min(...bars.map(bar => Number(bar.low))),
+      close: Number(bars[3].close),
+      tickVolume: bars.every(bar => Number.isFinite(Number(bar.tickVolume)))
+        ? bars.reduce((sum, bar) => sum + Number(bar.tickVolume), 0) : null
+    };
+  }).filter(Boolean).slice(-Math.max(1, Math.min(2000, Number(maxBars) || 2000)));
+}
+
 function getIndependentQuote(value) {
   const pair = normalisePair(value);
   if (!pair) return { ok: false, provider: PROVIDER, pair: null, status: 'UNSUPPORTED_PAIR' };
@@ -218,5 +304,8 @@ module.exports = {
   normalisePair,
   desiredPairs,
   compareIndependentQuotes,
+  normaliseSiftingQuote,
+  normaliseSiftingBars,
+  aggregateHourlyBarsTo4H,
   constants: { PROVIDER, MAX_SUBSCRIPTIONS, MAX_TICK_AGE_MS, MAX_PRICE_DEVIATION_PCT }
 };
