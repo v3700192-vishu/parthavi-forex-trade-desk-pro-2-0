@@ -41,6 +41,7 @@ const FED_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
 const SHADOW_CACHE_MS = 60 * 1000;
 const RESEARCH_CANDLE_CACHE_MS = 24 * 60 * 60 * 1000;
 const researchCandleCache = new Map();
+const researchCandleInflight = new Map();
 const FED_H10_SERIES = [
   ['EUR/USD','DEXUSEU'],
   ['GBP/USD','DEXUSUK'],
@@ -510,10 +511,11 @@ async function getSiftingCandles(pair,timeframe,spec) {
   const ageSeconds=Math.max(0,Math.floor((Date.now()-last.timestamp)/1000));
   const freshness=ageSeconds<=spec.maxAge?'FRESH':'STALE';
   return {
-    ok:true,provider:'SiftingIO',pair,timeframe,interval,
+    ok:true,provider:'SiftingIO',pair,timeframe,interval:timeframe==='4H'?'4h':interval,
     meta:{
       symbol:symbolFor(pair),lastCandleAt:last.time,ageSeconds,candleCount:candles.length,
       freshness,freshnessWindowSeconds:spec.maxAge,safeToSignal:false,
+      sourceInterval:interval,
       fallbackFrom:'Biquote',
       sourceMethod:timeframe==='4H'?'SiftingIO 1H closed OHLC bars aggregated into complete UTC 4H buckets':'SiftingIO historical closed OHLC bars; open candle excluded',
       disclaimer:'Aggregated indicative historical FX OHLC. Tick count is not traded currency volume; price basis may differ from brokers.'
@@ -590,14 +592,18 @@ async function getCandles(pair,timeframe) {
 async function getResearchCandles(pair,timeframe) {
   const key=pair+'|'+timeframe, cached=researchCandleCache.get(key);
   if(cached&&Date.now()-cached.at<RESEARCH_CANDLE_CACHE_MS) return {...cached.value,cache:'RESEARCH_HIT'};
-  const value=await getCandles(pair,timeframe);
-  researchCandleCache.set(key,{at:Date.now(),value});
-  if(researchCandleCache.size>100) {
-    for(const [entry,item] of researchCandleCache) {
-      if(Date.now()-item.at>RESEARCH_CANDLE_CACHE_MS) researchCandleCache.delete(entry);
+  if(researchCandleInflight.has(key)) return {...await researchCandleInflight.get(key),cache:'RESEARCH_JOINED'};
+  const work=getCandles(pair,timeframe).then(value=>{
+    researchCandleCache.set(key,{at:Date.now(),value});
+    if(researchCandleCache.size>100) {
+      for(const [entry,item] of researchCandleCache) {
+        if(Date.now()-item.at>RESEARCH_CANDLE_CACHE_MS) researchCandleCache.delete(entry);
+      }
     }
-  }
-  return {...value,cache:'RESEARCH_MISS'};
+    return value;
+  }).finally(()=>researchCandleInflight.delete(key));
+  researchCandleInflight.set(key,work);
+  return {...await work,cache:'RESEARCH_MISS'};
 }
 function independentQuoteAsApiQuote(pair) {
   const value=getIndependentQuote(pair);
