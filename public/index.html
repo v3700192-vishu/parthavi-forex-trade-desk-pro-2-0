@@ -613,6 +613,13 @@ body{color:#fff!important}
      </div>
      <div class="sentiment-coverage" id="directionalSentimentCoverage">Collecting verified indicator votes…</div>
      <div class="sentiment-footnote">Percentages are the share of EMA trend, RSI, MACD and recent-price votes. They are not calibrated win probabilities or trade confidence. The label needs at least 60% vote coverage and a 55% share with a 10-point lead; otherwise it remains MIXED.</div>
+     <div class="forecastgrid" style="margin-top:9px">
+      <div class="forecastcell"><small>CFTC WEEKLY POSITIONING</small><b id="cotPositioningBias">WAIT · SOURCE CHECKING</b></div>
+      <div class="forecastcell"><small>LEVERAGED FUNDS · 52W PAIR PERCENTILE</small><b id="cotLeveragedPercentile">—</b></div>
+      <div class="forecastcell"><small>ASSET MANAGERS · 52W PAIR PERCENTILE</small><b id="cotAssetManagerPercentile">—</b></div>
+      <div class="forecastcell"><small>CFTC REPORT DATE · TUESDAY</small><b id="cotReportDate">—</b></div>
+     </div>
+     <div class="sentiment-footnote" id="cotPositioningNote">CFTC is delayed weekly futures-positioning context, not live spot order flow or an intraday trading signal.</div>
     </section>
     <div class="forecastgrid" style="margin-top:9px">
      <div class="forecastcell"><small>INDEPENDENT SOURCE · SIFTINGIO</small><b id="independentSourceStatus">API KEY REQUIRED</b></div>
@@ -1800,6 +1807,25 @@ body{color:#fff!important}
   if(statusNode)statusNode.title=detail;
  }
  
+
+function renderCftcPositioning(context){
+  const value=context&&typeof context==='object'?context:{};
+  const valid=['FRESH_WEEKLY','STALE_WEEKLY'].includes(value.status);
+  const leveraged=value.leveragedFunds||{};
+  const asset=value.assetManagers||{};
+  const bias=value.direction||'MIXED';
+  setNodeText('cotPositioningBias',valid?bias+' · '+String(value.status).replaceAll('_',' '):'WAIT · SOURCE UNAVAILABLE');
+  setNodeText('cotLeveragedPercentile',hasNumber(leveraged.pairPercentile52Week)?Number(leveraged.pairPercentile52Week).toFixed(1)+'%':'—');
+  setNodeText('cotAssetManagerPercentile',hasNumber(asset.pairPercentile52Week)?Number(asset.pairPercentile52Week).toFixed(1)+'%':'—');
+  setNodeText('cotReportDate',value.reportDate||'—');
+  const note=valid
+    ?'CFTC '+String(value.currency||'')+' futures · '+String(value.sampleWeeks||0)+' weekly observations · '+String(value.reportAgeDays||0)+'d old · publication usually Friday after Tuesday positioning. Weekly context only.'
+    :'CFTC weekly data not available. No positioning vote is inferred.';
+  setNodeText('cotPositioningNote',note);
+  const node=$('#cotPositioningBias');
+  if(node)node.style.color=bias==='BULLISH'?'#8ff0c6':bias==='BEARISH'?'#ff9ba2':'#ffe39a';
+}
+
 function renderDirectionalSentiment(sentiment,pair){
   const value=sentiment&&typeof sentiment==='object'?sentiment:{};
   const direction=['BULLISH','BEARISH','MIXED'].includes(value.direction)?value.direction:'MIXED';
@@ -1856,6 +1882,7 @@ function renderShadowEngine(data){
   const tfNode=$('#shadowTimeframes');
   if(tfNode)tfNode.textContent=(live.timeframes||[]).map(x=>x.timeframe+': '+x.direction+' ('+x.freshness+')').join('  |  ');
   renderDirectionalSentiment(live.directionalSentiment,data.pair);
+  renderCftcPositioning(live.marketContext&&live.marketContext.cftcPositioning);
   if(live.independentSource){
    const independent=live.independentSource;
    setNodeText('independentSourceStatus',independent.status||'WAIT');
@@ -2024,6 +2051,7 @@ function renderShadowEngine(data){
    setNodeText('shadowEngineStatus','ENGINE UNAVAILABLE');
    setNodeText('shadowCandidate','WAIT · SHADOW ENGINE ERROR');
    renderDirectionalSentiment(null,pairNow());
+   renderCftcPositioning(null);
    setNodeText('shadowFinalGate','FINAL: WAIT · '+String(error.message||'engine_unavailable'));
   }finally{shadowEngineBusy=false;}
  }
