@@ -76,6 +76,15 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - CFTC reports are weekly, based on Tuesday positions and generally released Friday at 3:30 p.m. America/New_York. The dashboard labels this data as weekly positioning context, not intraday spot flow or a live trade signal.
 - The CFTC context is displayed separately and is not yet fed into the walk-forward probability model. It must be time-aligned to the Friday publication time before it can be used in any historical model training, to avoid look-ahead leakage.
 
+## Central-bank policy-rate intelligence
+
+- `GET /api/forex/central-bank-policy?pair=EUR/USD` reads the BIS `WS_CBPOL` central-bank policy-rate dataset for USD, EUR, GBP, JPY, CHF, AUD, NZD and CAD.
+- The adapter selects daily observations in the annual-percent unit, validates the publishing central-bank source for each currency, and preserves the observation date and freshness. The server requests approximately 400 days of history and caches the result for six hours.
+- For each currency, the API returns its latest policy rate, latest observed rate change and effective observation date, plus the 12-month rate change where a suitable reference observation exists.
+- For each pair, current base-minus-quote rate differential is displayed as carry context. A separate research-only policy impulse compares the two currencies' 12-month rate changes: at least +0.25 percentage point is BULLISH context, at most -0.25 is BEARISH context, and values between those thresholds are MIXED. Missing or stale data remains WAIT.
+- The BIS policy impulse is a transparent heuristic, not a forecast, calibrated trade vote or substitute for central-bank forward guidance. It is exposed under `live.marketContext.centralBankPolicy` only as higher-timeframe context; it does not alter the 68% probability gate or final trade eligibility.
+- Source: Bank for International Settlements, Central bank policy rates (`WS_CBPOL`): https://stats.bis.org/api/#
+
 ## Risk and signal gating
 
 - ATR 14, per-bar realised volatility (20/50 closed returns) and ADX-based regime are calculated from the selected timeframe's closed candles.
