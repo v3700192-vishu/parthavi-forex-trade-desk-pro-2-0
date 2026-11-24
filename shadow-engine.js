@@ -151,20 +151,139 @@ function wilsonLowerBound(successes, total, z = 1.96) {
   return (centre - margin) / denominator;
 }
 
+
+function evaluateBarrierOutcome(candles, index, direction, atrValue,
+  horizonBars = HORIZON_BARS, stopAtr = 1, targetAtr = 2) {
+  if (!Array.isArray(candles) || !['BULLISH', 'BEARISH'].includes(direction) ||
+      !Number.isInteger(index) || index < 0 ||
+      !Number.isInteger(horizonBars) || horizonBars < 1 ||
+      index + horizonBars >= candles.length ||
+      !finite(Number(atrValue)) || Number(atrValue) <= 0 ||
+      !finite(Number(stopAtr)) || Number(stopAtr) <= 0 ||
+      !finite(Number(targetAtr)) || Number(targetAtr) <= 0) return null;
+
+  const entry = Number(candles[index].close);
+  const riskDistance = Number(atrValue) * Number(stopAtr);
+  const targetDistance = Number(atrValue) * Number(targetAtr);
+  if (!finite(entry) || entry <= 0 || !finite(riskDistance) || !finite(targetDistance)) return null;
+
+  let mfeDistance = 0;
+  let maeDistance = 0;
+  let outcome = 'NO_TOUCH';
+  let barsHeld = horizonBars;
+
+  for (let step = 1; step <= horizonBars; step++) {
+    const bar = candles[index + step];
+    const open = Number(bar && bar.open);
+    const high = Number(bar && bar.high);
+    const low = Number(bar && bar.low);
+    const close = Number(bar && bar.close);
+    if (![open, high, low, close].every(finite) || open <= 0 ||
+        high < Math.max(open, close, low) || low > Math.min(open, close, high)) return null;
+
+    const favourable = direction === 'BULLISH'
+      ? Math.max(0, high - entry)
+      : Math.max(0, entry - low);
+    const adverse = direction === 'BULLISH'
+      ? Math.max(0, entry - low)
+      : Math.max(0, high - entry);
+    mfeDistance = Math.max(mfeDistance, favourable);
+    maeDistance = Math.max(maeDistance, adverse);
+
+    const targetHit = direction === 'BULLISH'
+      ? high >= entry + targetDistance
+      : low <= entry - targetDistance;
+    const stopHit = direction === 'BULLISH'
+      ? low <= entry - riskDistance
+      : high >= entry + riskDistance;
+
+    if (targetHit && stopHit) {
+      outcome = 'AMBIGUOUS_SAME_BAR';
+      barsHeld = step;
+      mfeDistance = Math.min(mfeDistance, targetDistance);
+      maeDistance = Math.min(maeDistance, riskDistance);
+      break;
+    }
+    if (targetHit) {
+      outcome = 'TARGET_FIRST';
+      barsHeld = step;
+      mfeDistance = Math.min(mfeDistance, targetDistance);
+      break;
+    }
+    if (stopHit) {
+      outcome = 'STOP_FIRST';
+      barsHeld = step;
+      maeDistance = Math.min(maeDistance, riskDistance);
+      break;
+    }
+  }
+
+  const finalClose = Number(candles[index + horizonBars].close);
+  const horizonCloseR = outcome === 'NO_TOUCH' && finite(finalClose)
+    ? (direction === 'BULLISH' ? finalClose - entry : entry - finalClose) / riskDistance
+    : null;
+
+  return {
+    outcome,
+    barsHeld,
+    entry,
+    stopAtr: Number(stopAtr),
+    targetAtr: Number(targetAtr),
+    mfeR: mfeDistance / riskDistance,
+    maeR: maeDistance / riskDistance,
+    horizonCloseR
+  };
+}
+
+function summariseBarrierResearch(stats, horizonBars = HORIZON_BARS) {
+  const resolved = stats.targetFirst + stats.stopFirst + stats.ambiguousSameBar;
+  return {
+    method: '14-bar mean true-range barrier simulation; 1x risk stop, 2x risk target; same-bar double touches are ambiguous',
+    horizonBars,
+    stopAtr: 1,
+    targetAtr: 2,
+    evaluated: stats.evaluated,
+    targetFirst: stats.targetFirst,
+    stopFirst: stats.stopFirst,
+    ambiguousSameBar: stats.ambiguousSameBar,
+    noTouch: stats.noTouch,
+    barrierResolved: resolved,
+    targetFirstRateAmongResolved: resolved ? stats.targetFirst / resolved : null,
+    targetFirstRateOfAll: stats.evaluated ? stats.targetFirst / stats.evaluated : null,
+    averageMfeR: stats.excursionSamples ? stats.mfeRSum / stats.excursionSamples : null,
+    averageMaeR: stats.excursionSamples ? stats.maeRSum / stats.excursionSamples : null,
+    averageNoTouchCloseR: stats.noTouchCloseSamples ? stats.noTouchCloseRSum / stats.noTouchCloseSamples : null
+  };
+}
+
 function walkForward(datasets, horizonBars = HORIZON_BARS) {
+  const effectiveHorizon = Number.isInteger(horizonBars) && horizonBars > 0 ? horizonBars : HORIZON_BARS;
   const byPair = [];
+  const barrierTotals = {
+    evaluated: 0, targetFirst: 0, stopFirst: 0, ambiguousSameBar: 0, noTouch: 0,
+    mfeRSum: 0, maeRSum: 0, excursionSamples: 0,
+    noTouchCloseRSum: 0, noTouchCloseSamples: 0
+  };
   let evaluated = 0, correct = 0, bullish = 0, bearish = 0;
   let actualBullish = 0, actualBearish = 0, trueBullish = 0, trueBearish = 0;
   let firstForecastAt = null, lastForecastAt = null;
+
   for (const dataset of datasets) {
     const candles = Array.isArray(dataset.candles) ? dataset.candles : [];
     let pairEvaluated = 0, pairCorrect = 0, pairBullish = 0, pairBearish = 0;
-    for (let i = MIN_HISTORY - 1; i + horizonBars < candles.length; i += horizonBars) {
+    const pairBarrier = {
+      evaluated: 0, targetFirst: 0, stopFirst: 0, ambiguousSameBar: 0, noTouch: 0,
+      mfeRSum: 0, maeRSum: 0, excursionSamples: 0,
+      noTouchCloseRSum: 0, noTouchCloseSamples: 0
+    };
+
+    for (let i = MIN_HISTORY - 1; i + effectiveHorizon < candles.length; i += effectiveHorizon) {
       const sample = candles.slice(0, i + 1);
       const prediction = analyseDirection(sample);
       if (!['BULLISH', 'BEARISH'].includes(prediction.direction)) continue;
-      const start = Number(candles[i].close), end = Number(candles[i + horizonBars].close);
+      const start = Number(candles[i].close), end = Number(candles[i + effectiveHorizon].close);
       if (!finite(start) || !finite(end) || end === start) continue;
+
       const actual = end > start ? 'BULLISH' : 'BEARISH';
       const isCorrect = actual === prediction.direction;
       pairEvaluated++; evaluated++;
@@ -177,19 +296,45 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
         pairBearish++; bearish++;
         if (actual === 'BEARISH') trueBearish++;
       }
+
+      const barrier = evaluateBarrierOutcome(
+        candles, i, prediction.direction,
+        prediction.metrics && prediction.metrics.atr14,
+        effectiveHorizon, 1, 2
+      );
+      if (barrier) {
+        for (const target of [barrierTotals, pairBarrier]) {
+          target.evaluated++;
+          if (barrier.outcome === 'TARGET_FIRST') target.targetFirst++;
+          else if (barrier.outcome === 'STOP_FIRST') target.stopFirst++;
+          else if (barrier.outcome === 'AMBIGUOUS_SAME_BAR') target.ambiguousSameBar++;
+          else target.noTouch++;
+          target.mfeRSum += barrier.mfeR;
+          target.maeRSum += barrier.maeR;
+          target.excursionSamples++;
+          if (barrier.horizonCloseR !== null) {
+            target.noTouchCloseRSum += barrier.horizonCloseR;
+            target.noTouchCloseSamples++;
+          }
+        }
+      }
+
       const stamp = candles[i].time || new Date(candles[i].timestamp).toISOString();
       if (!firstForecastAt || stamp < firstForecastAt) firstForecastAt = stamp;
       if (!lastForecastAt || stamp > lastForecastAt) lastForecastAt = stamp;
     }
+
     byPair.push({
       pair: dataset.pair,
       evaluated: pairEvaluated,
       correct: pairCorrect,
       accuracy: pairEvaluated ? pairCorrect / pairEvaluated : null,
       bullish: pairBullish,
-      bearish: pairBearish
+      bearish: pairBearish,
+      barrierResearch: summariseBarrierResearch(pairBarrier, effectiveHorizon)
     });
   }
+
   const accuracy = evaluated ? correct / evaluated : null;
   const lower95 = wilsonLowerBound(correct, evaluated);
   const bullishRecall = actualBullish ? trueBullish / actualBullish : null;
@@ -200,10 +345,11 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
     ? Math.max(actualBullish, actualBearish) / evaluated : null;
   const accuracyScreenPassed = evaluated >= MIN_VALIDATION_SAMPLES &&
     accuracy !== null && accuracy >= VALIDATED_ACCURACY_GATE;
+
   return {
     method: 'fixed-rule chronological walk-forward; no look-ahead in features',
-    target: 'direction of close after next 3 completed candles',
-    horizonBars,
+    target: 'direction of close after next ' + effectiveHorizon + ' completed candles',
+    horizonBars: effectiveHorizon,
     evaluated, correct, incorrect: evaluated - correct,
     bullish, bearish, actualBullish, actualBearish,
     bullishRecall, bearishRecall, balancedAccuracy, majorityClassBaseline,
@@ -219,16 +365,19 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
       : accuracyScreenPassed ? 'ACCURACY_SCREEN_ONLY_CALIBRATION_MISSING'
       : 'ACCURACY_SCREEN_NOT_PASSED',
     lower95Interpretation: 'Nominal Wilson bound only; pooled FX pairs and serial observations are correlated, so IID confidence assumptions are not established.',
+    barrierResearch: summariseBarrierResearch(barrierTotals, effectiveHorizon),
     byPair,
     limitations: [
       'Single indicative provider only',
       'Pooled FX pairs and time-series observations are correlated; pooled confidence bounds are descriptive only',
-      'Close-to-close direction target; not stop-loss/target simulation',
-      'No transaction costs, spread, slippage or execution simulation',
+      'Barrier distances use the mean of the last 14 true ranges: 1x risk stop and 2x risk target over the forecast horizon',
+      'Both barriers touched in one OHLC candle are marked ambiguous and never counted as target wins',
+      'MFE/MAE are measured in initial risk units until the first barrier or horizon end',
+      'No transaction costs, spread, slippage, financing or broker execution simulation',
       'No calibrated probability is produced; the 68% probability gate remains unavailable',
       'Not a live trade signal'
     ]
   };
 }
 
-module.exports = { analyseDirection, walkForward, wilsonLowerBound };
+module.exports = { analyseDirection, walkForward, wilsonLowerBound, evaluateBarrierOutcome };

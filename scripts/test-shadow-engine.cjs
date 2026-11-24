@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { analyseDirection, walkForward, wilsonLowerBound } = require('../shadow-engine');
+const { analyseDirection, walkForward, wilsonLowerBound, evaluateBarrierOutcome } = require('../shadow-engine');
 
 function makeTrendBars(count = 240, direction = 1) {
   const bars = [];
@@ -34,4 +34,41 @@ assert.ok(research.limitations.some(item => item.includes('No calibrated probabi
 assert.equal(wilsonLowerBound(0, 0), null);
 assert.equal(wilsonLowerBound(10, 10) > 0.68, true);
 
-console.log('Shadow engine direction, horizon, walk-forward and gate tests passed.');
+
+const entry = { open: 1, high: 1.00002, low: 0.99998, close: 1 };
+const futureBar = (open, high, low, close) => ({ open, high, low, close });
+const targetFirst = evaluateBarrierOutcome(
+  [entry, futureBar(1, 1.0003, 0.99995, 1.0002)], 0, 'BULLISH', 0.0001, 1
+);
+assert.equal(targetFirst.outcome, 'TARGET_FIRST');
+assert.ok(targetFirst.mfeR <= 2.000001);
+
+const stopFirst = evaluateBarrierOutcome(
+  [entry, futureBar(1, 1.00005, 0.9998, 0.9999)], 0, 'BULLISH', 0.0001, 1
+);
+assert.equal(stopFirst.outcome, 'STOP_FIRST');
+assert.ok(stopFirst.maeR <= 1.000001);
+
+const ambiguous = evaluateBarrierOutcome(
+  [entry, futureBar(1, 1.0003, 0.9998, 1.00005)], 0, 'BULLISH', 0.0001, 1
+);
+assert.equal(ambiguous.outcome, 'AMBIGUOUS_SAME_BAR');
+
+const noTouch = evaluateBarrierOutcome(
+  [entry, futureBar(1, 1.0001, 0.99995, 1.00005)], 0, 'BULLISH', 0.0001, 1
+);
+assert.equal(noTouch.outcome, 'NO_TOUCH');
+assert.ok(Number.isFinite(noTouch.horizonCloseR));
+
+const bearishTarget = evaluateBarrierOutcome(
+  [entry, futureBar(1, 1.00005, 0.9997, 0.9998)], 0, 'BEARISH', 0.0001, 1
+);
+assert.equal(bearishTarget.outcome, 'TARGET_FIRST');
+assert.equal(evaluateBarrierOutcome([entry], 0, 'BULLISH', 0.0001, 1), null);
+
+assert.equal(research.barrierResearch.evaluated, research.evaluated);
+assert.ok(research.barrierResearch.averageMfeR >= 0);
+assert.ok(research.barrierResearch.averageMaeR >= 0);
+assert.equal(research.validated, false, 'barrier outcomes do not establish calibrated probability');
+
+console.log('Shadow engine direction, walk-forward, barrier, MFE/MAE and probability-gate tests passed.');
