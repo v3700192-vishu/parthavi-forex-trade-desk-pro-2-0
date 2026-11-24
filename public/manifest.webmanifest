@@ -1,13 +1,32 @@
 {
   "name": "PARTHAVI FOREX TRADE DESK PRO 2.0",
   "short_name": "PARTHAVI FOREX",
+  "id": "./",
   "description": "Independent Forex market intelligence and prediction-only workspace.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#100609",
   "theme_color": "#100609",
+  "categories": [
+    "finance",
+    "business",
+    "productivity"
+  ],
   "icons": [
+    {
+      "src": "./assets/icon-192.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icon-512.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
+    },
     {
       "src": "./assets/parthavi-forex-logo.webp",
       "sizes": "256x256",
