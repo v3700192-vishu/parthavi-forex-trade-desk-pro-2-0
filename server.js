@@ -6,6 +6,7 @@
 'use strict';
 
 const { analyseDirection, walkForward, aggregateDirectionalSentiment } = require('./shadow-engine');
+const { buildCftcPositioning, CURRENCY_CONTRACTS } = require('./cftc-positioning');
 const {
   startIndependentSource, selectIndependentPair, getIndependentQuote,
   getIndependentSourceStatus, compareIndependentQuotes
@@ -40,6 +41,7 @@ const REFERENCE_CURRENCIES = ['USD','GBP','JPY','CHF','AUD','NZD','CAD'];
 const REFERENCE_PAIRS = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD'];
 const REFERENCE_CACHE_MS = 15 * 60 * 1000;
 const FED_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
+const CFTC_POSITIONING_CACHE_MS = 6 * 60 * 60 * 1000;
 const SHADOW_CACHE_MS = 60 * 1000;
 const RESEARCH_CANDLE_CACHE_MS = 6 * 60 * 60 * 1000;
 const SIFTING_REST_MIN_INTERVAL_MS = 1250;
@@ -65,6 +67,7 @@ const FED_H10_SERIES = [
 ];
 let referenceCache = null;
 let fedReferenceCache = null;
+let cftcPositioningCache = null;
 const shadowEngineCache = new Map();
 const quoteCache = new Map();
 const candleCache = new Map();
@@ -720,11 +723,58 @@ function independentQuoteAsApiQuote(pair) {
     meta:{freshness:'FRESH',safeToSignal:true,quoteAgeSeconds:ageSeconds,provider:'SiftingIO'}
   };
 }
+
+async function getCftcPositioning() {
+  if (cftcPositioningCache && Date.now() - cftcPositioningCache.at < CFTC_POSITIONING_CACHE_MS) {
+    return { ...cftcPositioningCache.value, cache: 'HIT' };
+  }
+  const url = new URL('/resource/gpe5-46if.json', 'https://publicreporting.cftc.gov');
+  const codes = Object.values(CURRENCY_CONTRACTS);
+  const quote = value => "'" + String(value).replace(/'/g, "''") + "'";
+  url.searchParams.set('$select', [
+    'report_date_as_yyyy_mm_dd',
+    'cftc_contract_market_code',
+    'market_and_exchange_names',
+    'open_interest_all',
+    'lev_money_positions_long',
+    'lev_money_positions_short',
+    'asset_mgr_positions_long',
+    'asset_mgr_positions_short'
+  ].join(','));
+  url.searchParams.set('$where',
+    "futonly_or_combined = 'FutOnly' AND cftc_contract_market_code IN (" +
+    codes.map(quote).join(',') + ')'
+  );
+  url.searchParams.set('$order', 'report_date_as_yyyy_mm_dd DESC');
+  url.searchParams.set('$limit', String(codes.length * 52));
+  const response = await fetch(url, {
+    headers: { 'Accept': 'application/json' },
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!response.ok) {
+    const error = new Error('cftc_tff_http_' + response.status);
+    error.statusCode = 502;
+    throw error;
+  }
+  const rows = await response.json();
+  if (!Array.isArray(rows) || rows.length > codes.length * 52) {
+    const error = new Error('cftc_tff_invalid_response');
+    error.statusCode = 502;
+    throw error;
+  }
+  const result = buildCftcPositioning(rows);
+  result.cache = 'MISS';
+  cftcPositioningCache = { at: Date.now(), value: result };
+  return result;
+}
+
 async function getShadowEngine(pair,timeframe) {
   const key=pair+'|'+timeframe, cached=shadowEngineCache.get(key);
   if(cached && Date.now()-cached.at<SHADOW_CACHE_MS) return {...cached.value,cache:'HIT'};
 
   selectIndependentPair(pair);
+  const cftcPromise = getCftcPositioning().then(value => value.pairs[pair] || null)
+    .catch(error => ({ pair, status: 'UNAVAILABLE', direction: 'MIXED', reason: safeError(error) }));
   const allPairs=[...PAIRS];
   const historyResults=await Promise.allSettled(allPairs.map(p=>getResearchCandles(p,timeframe)));
   const history=historyResults.map((result,index)=>result.status==='fulfilled'
@@ -739,6 +789,7 @@ async function getShadowEngine(pair,timeframe) {
   let quote=null;
   try { quote=await getQuote(pair); } catch(error) { /* fail closed below */ }
   const independentQuote=getIndependentQuote(pair);
+  const cftcPairContext=await cftcPromise;
 
   const timeframeStates=currentResults.map((result,index)=>{
     if(result.status!=='fulfilled') return {timeframe:timeframes[index],direction:'WAIT',freshness:'UNAVAILABLE',reason:safeError(result.reason)};
@@ -789,6 +840,10 @@ async function getShadowEngine(pair,timeframe) {
       allCandlesFresh,
       fiveTimeframeAligned:aligned,
       directionalSentiment,
+      marketContext:{
+        cftcPositioning:cftcPairContext,
+        cftcRole:'WEEKLY_POSITIONING_CONTEXT_ONLY'
+      },
       independentSource:{
         provider:'SiftingIO',primaryProvider:quote&&quote.provider||'UNAVAILABLE',
         status:!independentQuoteFresh?independentQuote.status:!quoteFresh?'PRIMARY_STALE':!primaryVendorIndependent?'SAME_PROVIDER_NOT_INDEPENDENT':priceAgreement.status,
@@ -872,6 +927,19 @@ const server=http.createServer(async(req,res)=>{
     try { return respond(res,200,await getShadowEngine(pair,timeframe)); }
     catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,engine:'PARTHAVI SHADOW DIRECTION ENGINE',pair,timeframe,error:safeError(error),liveEligible:false,finalDecision:'WAIT'}); }
   }
+  if(url.pathname==='/api/forex/cot-positioning') {
+    if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
+    try {
+      const data=await getCftcPositioning();
+      return respond(res,200,{...data,selectedPair:data.pairs[pair]||null});
+    } catch(error) {
+      return respond(res,Number(error.statusCode)||502,{
+        ok:false,provider:'Commodity Futures Trading Commission (CFTC)',
+        dataset:'Traders in Financial Futures · Futures Only',
+        error:safeError(error),status:'UNAVAILABLE',signalEligible:false
+      });
+    }
+  }
   if(url.pathname==='/api/forex/fed-reference-rates') {
     try { return respond(res,200,await getFederalReserveReferenceRates()); }
     catch(error) { return respond(res,Number(error.statusCode)||502,{ok:false,provider:'Federal Reserve H.10',relay:'FRED graph CSV',error:safeError(error),signalEligible:false}); }
@@ -926,6 +994,7 @@ async function upstreamSelfCheck() {
     ['EURUSD quote', () => getQuote('EUR/USD')],
     ['ECB reference rates', () => getEcbReferenceRates()],
     ['Federal Reserve H10 reference rates', () => getFederalReserveReferenceRates()],
+    ['CFTC TFF currency positioning', () => getCftcPositioning()],
     ['EURUSD 15M candles', () => getCandles('EUR/USD','15M')],
     ['economic calendar', () => getCalendar()],
     ['market news', () => getNews()]
@@ -942,6 +1011,8 @@ async function upstreamSelfCheck() {
       console.log('[UPSTREAM_CHECK] '+label+'=OK observationDate='+value.meta.observationDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
     } else if(label==='ECB reference rates') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK latestDate='+value.meta.latestDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
+    } else if(label==='CFTC TFF currency positioning') {
+      console.log('[UPSTREAM_CHECK] '+label+'=OK currencies='+value.availableCurrencies+'/7 status='+value.status+' report='+Object.values(value.currencies).filter(Boolean).map(item=>item.reportDate).sort().slice(-1)[0]);
     } else if(label==='EURUSD quote') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK freshness='+value.meta.freshness+' ageSeconds='+value.meta.quoteAgeSeconds+' state='+value.quote.marketState);
     } else if(label==='EURUSD 15M candles') {
