@@ -8,6 +8,7 @@
 const { analyseDirection, walkForward, aggregateDirectionalSentiment } = require('./shadow-engine');
 const { buildCftcPositioning, CURRENCY_CONTRACTS } = require('./cftc-positioning');
 const { buildGlobalRiskContext, buildFundamentalContext } = require('./fundamental-context');
+const { BIS_POLICY_URL, buildCentralBankPolicyContext, parseBISCsv } = require('./central-bank-policy');
 const {
   startIndependentSource, selectIndependentPair, getIndependentQuote,
   getIndependentSourceStatus, compareIndependentQuotes
@@ -43,6 +44,7 @@ const REFERENCE_PAIRS = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/
 const REFERENCE_CACHE_MS = 15 * 60 * 1000;
 const FED_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
 const CFTC_POSITIONING_CACHE_MS = 6 * 60 * 60 * 1000;
+const BIS_POLICY_CACHE_MS = 6 * 60 * 60 * 1000;
 const GLOBAL_RISK_CACHE_MS = 6 * 60 * 60 * 1000;
 const NEWS_CACHE_MS = 5 * 60 * 1000;
 const CALENDAR_CACHE_MS = 15 * 60 * 1000;
@@ -72,6 +74,7 @@ const FED_H10_SERIES = [
 let referenceCache = null;
 let fedReferenceCache = null;
 let cftcPositioningCache = null;
+let centralBankPolicyCache = null;
 let globalRiskCache = null;
 let newsCache = null;
 let calendarCache = null;
@@ -791,6 +794,42 @@ function independentQuoteAsApiQuote(pair) {
   };
 }
 
+async function getCentralBankPolicyContext() {
+  if (centralBankPolicyCache && Date.now() - centralBankPolicyCache.at < BIS_POLICY_CACHE_MS) {
+    return { ...centralBankPolicyCache.value, cache: 'HIT' };
+  }
+  const startPeriod = new Date(Date.now() - 400 * 86400000).toISOString().slice(0, 10);
+  const url = new URL('/api/v1/data/WS_CBPOL/.', BIS_POLICY_URL);
+  url.searchParams.set('startPeriod', startPeriod);
+  url.searchParams.set('format', 'csvfile');
+  const response = await fetch(url, {
+    headers: { 'Accept': 'text/csv' },
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!response.ok) {
+    const error = new Error('bis_central_bank_policy_http_' + response.status);
+    error.statusCode = response.status;
+    throw error;
+  }
+  const csv = await response.text();
+  if (csv.length > 20000000) {
+    const error = new Error('bis_central_bank_policy_response_too_large');
+    error.statusCode = 502;
+    throw error;
+  }
+  const rows = parseBISCsv(csv);
+  const result = buildCentralBankPolicyContext(rows);
+  result.sourceWindowStart = startPeriod;
+  if (!result.ok) {
+    const error = new Error('bis_central_bank_policy_series_unavailable');
+    error.statusCode = 502;
+    throw error;
+  }
+  result.cache = 'MISS';
+  centralBankPolicyCache = { at: Date.now(), value: result };
+  return result;
+}
+
 async function getCftcPositioning() {
   if (cftcPositioningCache && Date.now() - cftcPositioningCache.at < CFTC_POSITIONING_CACHE_MS) {
     return { ...cftcPositioningCache.value, cache: 'HIT' };
@@ -842,6 +881,8 @@ async function getShadowEngine(pair,timeframe) {
   selectIndependentPair(pair);
   const cftcPromise = getCftcPositioning().then(value => value.pairs[pair] || null)
     .catch(error => ({ pair, status: 'UNAVAILABLE', direction: 'MIXED', reason: safeError(error) }));
+  const policyPromise = getCentralBankPolicyContext().then(value => value.pairs[pair] || null)
+    .catch(error => ({ pair, status: 'UNAVAILABLE', policyBias: 'WAIT', reason: safeError(error) }));
   const fundamentalPromise = getFundamentalContext(pair).catch(error => ({
     pair,decisionRole:'RESEARCH_CONTEXT_ONLY',sourceStatus:{globalRisk:'UNAVAILABLE',calendar:'UNAVAILABLE',news:'UNAVAILABLE'},
     sourceErrors:[{source:'FUNDAMENTAL_CONTEXT',error:safeError(error)}]
@@ -862,6 +903,7 @@ async function getShadowEngine(pair,timeframe) {
   const independentQuote=getIndependentQuote(pair);
   const cftcPairContext=await cftcPromise;
   const fundamentalContext=await fundamentalPromise;
+  const centralBankPolicyContext=await policyPromise;
 
   const timeframeStates=currentResults.map((result,index)=>{
     if(result.status!=='fulfilled') return {timeframe:timeframes[index],direction:'WAIT',freshness:'UNAVAILABLE',reason:safeError(result.reason)};
@@ -915,7 +957,9 @@ async function getShadowEngine(pair,timeframe) {
       marketContext:{
         cftcPositioning:cftcPairContext,
         cftcRole:'WEEKLY_POSITIONING_CONTEXT_ONLY',
-        fundamentals:fundamentalContext
+        fundamentals:fundamentalContext,
+        centralBankPolicy:centralBankPolicyContext,
+        centralBankPolicyRole:'HIGHER_TIMEFRAME_POLICY_CONTEXT_ONLY'
       },
       independentSource:{
         provider:'SiftingIO',primaryProvider:quote&&quote.provider||'UNAVAILABLE',
@@ -1018,6 +1062,19 @@ const server=http.createServer(async(req,res)=>{
       });
     }
   }
+  if(url.pathname==='/api/forex/central-bank-policy') {
+    if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
+    try {
+      const data=await getCentralBankPolicyContext();
+      return respond(res,200,{...data,selectedPair:data.pairs[pair]||null});
+    } catch(error) {
+      return respond(res,Number(error.statusCode)||502,{
+        ok:false,provider:'Bank for International Settlements (BIS)',
+        dataset:'Central bank policy rates',error:safeError(error),
+        status:'UNAVAILABLE',signalEligible:false
+      });
+    }
+  }
   if(url.pathname==='/api/forex/cot-positioning') {
     if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
     try {
@@ -1086,6 +1143,7 @@ async function upstreamSelfCheck() {
     ['ECB reference rates', () => getEcbReferenceRates()],
     ['Federal Reserve H10 reference rates', () => getFederalReserveReferenceRates()],
     ['CFTC TFF currency positioning', () => getCftcPositioning()],
+    ['BIS central bank policy rates', () => getCentralBankPolicyContext()],
     ['FRED global risk context', () => getGlobalRiskContext()],
     ['EURUSD 15M candles', () => getCandles('EUR/USD','15M')],
     ['economic calendar', () => getCalendar()],
@@ -1103,6 +1161,8 @@ async function upstreamSelfCheck() {
       console.log('[UPSTREAM_CHECK] '+label+'=OK observationDate='+value.meta.observationDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
     } else if(label==='ECB reference rates') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK latestDate='+value.meta.latestDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
+    } else if(label==='BIS central bank policy rates') {
+      console.log('[UPSTREAM_CHECK] '+label+'=OK currencies='+value.availableCurrencies+'/8 status='+value.status+' EURUSD='+value.pairs['EUR/USD'].policyBias);
     } else if(label==='FRED global risk context') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK coreSeries='+value.availableSeries+'/'+value.expectedSeries+' status='+value.status+' USD='+value.usdBias+' conflict='+value.usdConflict+' risk='+value.riskRegime+' WTI='+value.optionalSeries.crudeOilStatus);
     } else if(label==='CFTC TFF currency positioning') {
