@@ -8,6 +8,7 @@
 const { analyseDirection, walkForward, aggregateDirectionalSentiment } = require('./shadow-engine');
 const { buildCftcPositioning, CURRENCY_CONTRACTS } = require('./cftc-positioning');
 const { buildGlobalRiskContext, buildFundamentalContext } = require('./fundamental-context');
+const { CENTRAL_BANK_NEWS_CACHE_MS, fetchCentralBankNews, buildPairCentralBankNewsContext } = require('./central-bank-news');
 const { BIS_AREAS, parseBISPolicyCsv, buildBISPolicyContext, buildPolicyRatePairContext } = require('./central-bank-policy');
 const {
   startIndependentSource, selectIndependentPair, getIndependentQuote,
@@ -47,6 +48,7 @@ const CFTC_POSITIONING_CACHE_MS = 6 * 60 * 60 * 1000;
 const BIS_POLICY_CACHE_MS = 6 * 60 * 60 * 1000;
 const GLOBAL_RISK_CACHE_MS = 6 * 60 * 60 * 1000;
 const NEWS_CACHE_MS = 5 * 60 * 1000;
+const OFFICIAL_CENTRAL_BANK_NEWS_CACHE_MS = CENTRAL_BANK_NEWS_CACHE_MS;
 const CALENDAR_CACHE_MS = 15 * 60 * 1000;
 const SHADOW_CACHE_MS = 60 * 1000;
 const RESEARCH_CANDLE_CACHE_MS = 6 * 60 * 60 * 1000;
@@ -77,6 +79,7 @@ let cftcPositioningCache = null;
 let bisPolicyCache = null;
 let globalRiskCache = null;
 let newsCache = null;
+let officialCentralBankNewsCache = null;
 let calendarCache = null;
 const shadowEngineCache = new Map();
 const quoteCache = new Map();
@@ -446,28 +449,44 @@ async function getFundamentalContext(pair) {
   const results=await Promise.allSettled([
     getGlobalRiskContext(),
     getCalendar(),
-    getNews()
+    getNews(),
+    getOfficialCentralBankNews()
   ]);
   const globalRisk=results[0].status==='fulfilled'?results[0].value:null;
   const calendar=results[1].status==='fulfilled'?results[1].value:null;
   const news=results[2].status==='fulfilled'?results[2].value:null;
+  const officialNews=results[3].status==='fulfilled'?results[3].value:null;
   const context=buildFundamentalContext({
     globalRisk,
     calendarItems:calendar&&Array.isArray(calendar.items)?calendar.items:[],
     newsItems:news&&Array.isArray(news.items)?news.items:[],
     pair
   });
+  context.centralBankNews=officialNews
+    ?buildPairCentralBankNewsContext(officialNews,pair)
+    :{pair,status:'UNAVAILABLE',direction:'WAIT',signalEligible:false,reason:'OFFICIAL_CENTRAL_BANK_FEEDS_UNAVAILABLE'};
+  context.centralBankNews.overallStatus=officialNews?officialNews.status:'UNAVAILABLE';
+  context.centralBankNews.availableCurrencies=officialNews?officialNews.availableCurrencies:0;
+  context.centralBankNews.expectedCurrencies=officialNews?officialNews.expectedCurrencies:8;
+  context.centralBankNews.connectedFeeds=officialNews?officialNews.connectedFeeds:0;
+  context.centralBankNews.expectedFeeds=officialNews?officialNews.expectedFeeds:9;
+  context.centralBankNews.currencySources=officialNews?officialNews.currencies:{};
+  context.centralBankNews.recentPolicyHeadlines=context.centralBankNews.recentPolicyHeadlines||[];
   context.sourceStatus={
     globalRisk:globalRisk?globalRisk.status:'UNAVAILABLE',
     calendar:calendar?'CONNECTED':'UNAVAILABLE',
     calendarItems:calendar&&Array.isArray(calendar.items)?calendar.items.length:0,
     news:news?'CONNECTED':'UNAVAILABLE',
-    newsItems:news&&Array.isArray(news.items)?news.items.length:0
+    newsItems:news&&Array.isArray(news.items)?news.items.length:0,
+    officialCentralBankNews:officialNews?officialNews.status:'UNAVAILABLE',
+    officialCentralBankNewsCurrencies:officialNews?officialNews.availableCurrencies:0,
+    officialCentralBankNewsFeeds:officialNews?officialNews.connectedFeeds:0
   };
   context.sourceErrors=[
     results[0].status==='rejected'?{source:'FRED',error:safeError(results[0].reason)}:null,
     results[1].status==='rejected'?{source:'CALENDAR',error:safeError(results[1].reason)}:null,
-    results[2].status==='rejected'?{source:'NEWS',error:safeError(results[2].reason)}:null
+    results[2].status==='rejected'?{source:'NEWS',error:safeError(results[2].reason)}:null,
+    results[3].status==='rejected'?{source:'OFFICIAL_CENTRAL_BANK_NEWS',error:safeError(results[3].reason)}:null
   ].filter(Boolean);
   context.fetchedAt=new Date().toISOString();
   return context;
@@ -557,6 +576,17 @@ async function getFederalReserveReferenceRates() {
     fetchedAt:new Date().toISOString(),cache:'MISS'
   };
   fedReferenceCache={at:Date.now(),value:result};
+  return result;
+}
+
+async function getOfficialCentralBankNews() {
+  if (officialCentralBankNewsCache &&
+      Date.now() - officialCentralBankNewsCache.at < OFFICIAL_CENTRAL_BANK_NEWS_CACHE_MS) {
+    return { ...officialCentralBankNewsCache.value, cache: 'HIT' };
+  }
+  const result = await fetchCentralBankNews();
+  result.cache = 'MISS';
+  officialCentralBankNewsCache = { at: Date.now(), value: result };
   return result;
 }
 
@@ -1101,6 +1131,22 @@ const server=http.createServer(async(req,res)=>{
       });
     }
   }
+  if(url.pathname==='/api/forex/central-bank-news') {
+    if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
+    try {
+      const data=await getOfficialCentralBankNews();
+      return respond(res,200,{
+        ...data,
+        selectedPair:buildPairCentralBankNewsContext(data,pair),
+        signalEligible:false
+      });
+    } catch(error) {
+      return respond(res,Number(error.statusCode)||502,{
+        ok:false,provider:'Official central-bank RSS / Atom feeds',
+        error:safeError(error),status:'UNAVAILABLE',signalEligible:false
+      });
+    }
+  }
   if(url.pathname==='/api/forex/central-bank-policy') {
     if(!pair) return respond(res,400,{ok:false,error:'unsupported_pair'});
     try {
@@ -1189,7 +1235,8 @@ async function upstreamSelfCheck() {
     ['BIS central bank policy-rate differential', () => getBISPolicyRates()],
     ['EURUSD 15M candles', () => getCandles('EUR/USD','15M')],
     ['economic calendar', () => getCalendar()],
-    ['market news', () => getNews()]
+    ['market news', () => getNews()],
+    ['official central-bank news', () => getOfficialCentralBankNews()]
   ];
   const results = await Promise.allSettled(checks.map(([,run]) => run()));
   results.forEach((result,index) => {
@@ -1203,6 +1250,8 @@ async function upstreamSelfCheck() {
       console.log('[UPSTREAM_CHECK] '+label+'=OK observationDate='+value.meta.observationDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
     } else if(label==='ECB reference rates') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK latestDate='+value.meta.latestDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
+    } else if(label==='official central-bank news') {
+      console.log('[UPSTREAM_CHECK] '+label+'=OK currencies='+value.availableCurrencies+'/'+value.expectedCurrencies+' feeds='+value.connectedFeeds+'/'+value.expectedFeeds+' EURUSD='+value.pairs['EUR/USD'].direction+' status='+value.status);
     } else if(label==='BIS central bank policy-rate differential') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK current='+value.availableCurrencies+'/'+value.expectedCurrencies+' fresh='+value.freshCurrencies+'/'+value.expectedCurrencies+' status='+value.status+' EUR='+value.currencies.EUR.status+' USD='+value.currencies.USD.status);
     } else if(label==='FRED global risk context') {

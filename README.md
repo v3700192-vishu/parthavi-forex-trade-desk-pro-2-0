@@ -86,6 +86,15 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - CFTC reports are weekly, based on Tuesday positions and generally released Friday at 3:30 p.m. America/New_York. The dashboard labels this data as weekly positioning context, not intraday spot flow or a live trade signal.
 - The CFTC context is displayed separately and is not yet fed into the walk-forward probability model. It must be time-aligned to the Friday publication time before it can be used in any historical model training, to avoid look-ahead leakage.
 
+## Official central-bank news intelligence
+
+- `GET /api/forex/central-bank-news?pair=EUR/USD` aggregates official RSS/Atom publications for USD (Federal Reserve), EUR (European Central Bank), GBP (Bank of England), JPY (Bank of Japan), CHF (Swiss National Bank), AUD (Reserve Bank of Australia), NZD (Reserve Bank of New Zealand) and CAD (Bank of Canada). The RBA contributes separate media-release and speech feeds.
+- These are publisher-owned feed URLs hosted on the central banks' official domains. The server checks HTTPS host allowlists, parses RSS/RDF/Atom entries, validates publication timestamps and article links, deduplicates URLs and caches feed results for 15 minutes. Each feed is fetched independently; a failed feed is reported as unavailable rather than replaced with another currency's headlines.
+- Only explicit policy actions are scored: rate rises / cuts, clearly hawkish / dovish policy language, and explicit currency-support or currency-selling intervention statements. Administrative and unclassified news remains context only and contributes no directional score.
+- Recent explicit signals are weighted with a five-day exponential half-life and only observations up to 14 days old can affect the displayed research context. Base-currency score minus quote-currency score produces a BULLISH / BEARISH / MIXED / WAIT context; both currencies must have recent scored evidence. This is a transparent keyword heuristic, not NLP, not a probability model and not a validated trade signal.
+- The selected-pair context is exposed under `live.marketContext.fundamentals.centralBankNews`. The dashboard shows the eight currency source statuses and the selected pair's latest base/quote headlines. No central-bank news score is included in the calibrated probability or the existing 68% trade gate until point-in-time historical validation is built.
+- Official feeds verified from central-bank websites: Federal Reserve RSS, ECB RSS, Bank of England RSS, Bank of Japan RSS, SNB RSS, RBA media releases and speeches, RBNZ news feed, and Bank of Canada press-release RSS.
+
 ## BIS central-bank policy-rate context
 
 - The API reads the BIS `WS_CBPOL` daily central-bank policy-rate dataset for the United States, euro area, United Kingdom, Japan, Switzerland, Australia, New Zealand and Canada. Each country/area series is requested directly, filtered to daily annual-percent observations and cached for six hours.
