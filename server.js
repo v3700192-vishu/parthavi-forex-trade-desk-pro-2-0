@@ -529,6 +529,7 @@ async function getShadowEngine(pair,timeframe) {
   if(!allCandlesFresh)blockers.push('one or more timeframe candles stale/unavailable');
   if(!aligned)blockers.push('five-timeframe direction is mixed or incomplete');
   if(!independentQuoteFresh)blockers.push('SiftingIO independent live quote unavailable or stale');
+  else if(!quoteFresh)blockers.push('Biquote primary quote unavailable or stale; cross-source price agreement cannot be evaluated');
   else if(!priceAgreement.aligned)blockers.push('Biquote and SiftingIO price divergence exceeds '+priceAgreement.maxDeviationPct+'%');
   blockers.push('68% probability calibration not established');
   const result={
