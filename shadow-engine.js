@@ -401,7 +401,8 @@ function aggregateDirectionalSentiment(timeframeStates) {
   const timeframes = Array.isArray(timeframeStates) ? timeframeStates.slice(0, 5) : [];
   const breakdown = timeframes.map(state => {
     const counts = { bullish: 0, bearish: 0, neutral: 0 };
-    const votes = state && state.votes && typeof state.votes === 'object' ? state.votes : {};
+    const isFresh = Boolean(state && state.freshness === 'FRESH');
+    const votes = isFresh && state.votes && typeof state.votes === 'object' ? state.votes : {};
     for (const key of voteKeys) {
       const vote = votes[key];
       if (vote === 'BULLISH') counts.bullish++;
@@ -417,6 +418,7 @@ function aggregateDirectionalSentiment(timeframeStates) {
     const neutralPercent = availableVotes ? Math.round(counts.neutral / availableVotes * 1000) / 10 : null;
     return {
       timeframe: state && state.timeframe || '—',
+      dataFresh: isFresh,
       direction: availableVotes
         ? classifyVoteSentiment(counts.bullish, counts.bearish, counts.neutral, availableVotes, voteKeys.length)
         : 'WAIT',
