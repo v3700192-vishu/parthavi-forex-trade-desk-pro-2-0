@@ -9,6 +9,12 @@ Independent, prediction-only Forex analytics workspace. This repository is separ
 - Dashboard and data API run as separate Render services.
 - Data provider: Biquote public REST and SignalR feed (no API key required).
 
+## Android / browser app installation
+
+- The dashboard is an installable Progressive Web App (PWA) with 192px and 512px icons, a home-screen install prompt, and a cached offline dashboard shell.
+- On Android Chrome, open the Dashboard URL and tap **INSTALL APP** when shown. If Chrome does not offer the prompt, use Chrome menu → **Install app** or **Add to Home screen**.
+- Offline mode caches only the app shell and static assets. Live quotes, candles, news and calendar still require internet; API responses are never cached by the service worker. This is a PWA, not a signed native Android APK.
+
 ## Market-data integration
 
 The backend normalises Biquote quote snapshots and OHLC bars for:
