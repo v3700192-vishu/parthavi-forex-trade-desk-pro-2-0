@@ -236,7 +236,9 @@ function evaluateBarrierOutcome(candles, index, direction, atrValue,
 }
 
 function summariseBarrierResearch(stats, horizonBars = HORIZON_BARS) {
-  const resolved = stats.targetFirst + stats.stopFirst + stats.ambiguousSameBar;
+  // Same-candle dual touches are not chronologically resolvable from OHLC data.
+  // Exclude them from the resolved denominator; report them separately.
+  const resolved = stats.targetFirst + stats.stopFirst;
   return {
     method: '14-bar mean true-range barrier simulation; 1x risk stop, 2x risk target; same-bar double touches are ambiguous',
     horizonBars,
@@ -326,6 +328,7 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
 
     byPair.push({
       pair: dataset.pair,
+      provider: dataset.provider || null,
       evaluated: pairEvaluated,
       correct: pairCorrect,
       accuracy: pairEvaluated ? pairCorrect / pairEvaluated : null,
@@ -348,6 +351,7 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
 
   return {
     method: 'fixed-rule chronological walk-forward; no look-ahead in features',
+    providers: [...new Set(datasets.map(dataset => dataset.provider).filter(Boolean))],
     target: 'direction of close after next ' + effectiveHorizon + ' completed candles',
     horizonBars: effectiveHorizon,
     evaluated, correct, incorrect: evaluated - correct,
@@ -380,4 +384,4 @@ function walkForward(datasets, horizonBars = HORIZON_BARS) {
   };
 }
 
-module.exports = { analyseDirection, walkForward, wilsonLowerBound, evaluateBarrierOutcome };
+module.exports = { analyseDirection, walkForward, wilsonLowerBound, evaluateBarrierOutcome, summariseBarrierResearch };
