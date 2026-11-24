@@ -41,7 +41,7 @@ const REFERENCE_PAIRS = ['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/
 const REFERENCE_CACHE_MS = 15 * 60 * 1000;
 const FED_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
 const SHADOW_CACHE_MS = 60 * 1000;
-const RESEARCH_CANDLE_CACHE_MS = 24 * 60 * 60 * 1000;
+const RESEARCH_CANDLE_CACHE_MS = 6 * 60 * 60 * 1000;
 const researchCandleCache = new Map();
 const researchCandleInflight = new Map();
 const FED_H10_SERIES = [
@@ -598,7 +598,31 @@ async function getResearchCandles(pair,timeframe) {
   const key=pair+'|'+timeframe, cached=researchCandleCache.get(key);
   if(cached&&Date.now()-cached.at<RESEARCH_CANDLE_CACHE_MS) return {...cached.value,cache:'RESEARCH_HIT'};
   if(researchCandleInflight.has(key)) return {...await researchCandleInflight.get(key),cache:'RESEARCH_JOINED'};
-  const work=getCandles(pair,timeframe).then(value=>{
+
+  const work=(async()=>{
+    let value=null;
+    let researchError=null;
+    // Prefer the longer SiftingIO history for backtesting only. Live candles used
+    // by the directional engine continue to come from Biquote via getCandles().
+    if(SIFTING_REST_FALLBACK_ENABLED && process.env.SIFTINGIO_API_KEY) {
+      try {
+        value=await getSiftingCandles(pair,timeframe,INTERVALS.get(timeframe));
+        value.meta.researchOnly=true;
+        value.meta.sourceRole='HISTORICAL_RESEARCH_ONLY';
+        value.meta.fallbackFrom=null;
+        value.meta.safeToSignal=false;
+        value.meta.disclaimer='Longer SiftingIO indicative historical OHLC used only for walk-forward research and cross-pair context. Live timeframe decisions use the Biquote feed; this history is not a live vote or executable price.';
+      } catch(error) {
+        researchError=safeError(error);
+      }
+    }
+    if(!value) {
+      value=await getCandles(pair,timeframe);
+      value.meta.researchOnly=true;
+      value.meta.sourceRole='HISTORICAL_RESEARCH_FALLBACK';
+      value.meta.safeToSignal=false;
+      if(researchError) value.meta.researchPrimaryError=researchError;
+    }
     researchCandleCache.set(key,{at:Date.now(),value});
     if(researchCandleCache.size>100) {
       for(const [entry,item] of researchCandleCache) {
@@ -606,7 +630,8 @@ async function getResearchCandles(pair,timeframe) {
       }
     }
     return value;
-  }).finally(()=>researchCandleInflight.delete(key));
+  })().finally(()=>researchCandleInflight.delete(key));
+
   researchCandleInflight.set(key,work);
   return {...await work,cache:'RESEARCH_MISS'};
 }
@@ -635,8 +660,8 @@ async function getShadowEngine(pair,timeframe) {
   const allPairs=[...PAIRS];
   const historyResults=await Promise.allSettled(allPairs.map(p=>getResearchCandles(p,timeframe)));
   const history=historyResults.map((result,index)=>result.status==='fulfilled'
-    ?{pair:allPairs[index],candles:result.value.candles}
-    :{pair:allPairs[index],candles:[]});
+    ?{pair:allPairs[index],provider:result.value.provider,candles:result.value.candles}
+    :{pair:allPairs[index],provider:'UNAVAILABLE',candles:[]});
   const selectedCandlesResult=await getCandles(pair,timeframe).then(value=>({status:'fulfilled',value})).catch(reason=>({status:'rejected',reason}));
   const selectedCandles=selectedCandlesResult.status==='fulfilled'?selectedCandlesResult.value:null;
   const timeframes=[...INTERVALS.keys()];
@@ -662,6 +687,8 @@ async function getShadowEngine(pair,timeframe) {
     };
   });
   const research=walkForward(history);
+  research.providers=[...new Set(history.map(item=>item.provider).filter(provider=>provider&&provider!=='UNAVAILABLE'))];
+  research.sourceRole='HISTORICAL_RESEARCH_ONLY';
   const quoteFresh=Boolean(quote&&quote.meta&&quote.meta.freshness==='FRESH'&&quote.quote&&quote.quote.marketState==='open');
   const allCandlesFresh=timeframeStates.length===5&&timeframeStates.every(s=>s.freshness==='FRESH');
   const directions=timeframeStates.map(s=>s.direction);
