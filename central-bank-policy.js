@@ -13,6 +13,7 @@ const BIS_AREAS = Object.freeze({
 
 const BIS_SOURCE = 'Bank for International Settlements (BIS) · Central bank policy rates (WS_CBPOL)';
 const MAX_OBSERVATION_AGE_DAYS = 7;
+const MAX_CURRENT_REFERENCE_AGE_DAYS = 14;
 const MAX_RATE_LOOKBACK_DAYS = 400;
 const PAIR_CURRENCIES = Object.freeze({
   'EUR/USD': ['EUR', 'USD'],
@@ -158,7 +159,7 @@ function buildCurrencyPolicyRate(currency, area, observations, now = Date.now())
     currency,
     area,
     title: latest.title,
-    status: ageDays <= MAX_OBSERVATION_AGE_DAYS ? 'FRESH_DAILY' : 'STALE_DAILY',
+    status: ageDays <= MAX_OBSERVATION_AGE_DAYS ? 'FRESH_DAILY' : ageDays <= MAX_CURRENT_REFERENCE_AGE_DAYS ? 'DELAYED_REFERENCE' : 'STALE_DAILY',
     ratePercent: latest.rate,
     observationDate: latest.date,
     ageDays,
@@ -194,8 +195,8 @@ function buildPairPolicyContext(pair, rates) {
   const base = rates && rates[baseCurrency];
   const quote = rates && rates[quoteCurrency];
   const available = Boolean(base && quote &&
-    ['FRESH_DAILY', 'STALE_DAILY'].includes(base.status) &&
-    ['FRESH_DAILY', 'STALE_DAILY'].includes(quote.status) &&
+    ['FRESH_DAILY', 'DELAYED_REFERENCE'].includes(base.status) &&
+    ['FRESH_DAILY', 'DELAYED_REFERENCE'].includes(quote.status) &&
     Number.isFinite(base.ratePercent) && Number.isFinite(quote.ratePercent));
   if (!available) {
     return {
@@ -219,7 +220,7 @@ function buildPairPolicyContext(pair, rates) {
 
   return {
     pair,
-    status: fresh ? 'FRESH_DAILY' : 'STALE_DAILY',
+    status: fresh ? 'FRESH_DAILY' : 'DELAYED_REFERENCE',
     baseCurrency,
     quoteCurrency,
     baseRatePercent: base.ratePercent,
@@ -247,7 +248,10 @@ function buildBISPolicyContext(seriesByCurrency, now = Date.now()) {
     currencies[currency] = buildCurrencyPolicyRate(currency, area,
       seriesByCurrency && seriesByCurrency[currency], now);
   }
-  const available = Object.values(currencies).filter(item => item.status === 'FRESH_DAILY').length;
+  const freshCurrencies = Object.values(currencies).filter(item => item.status === 'FRESH_DAILY').length;
+  const available = Object.values(currencies).filter(item =>
+    ['FRESH_DAILY', 'DELAYED_REFERENCE'].includes(item.status)
+  ).length;
   const pairs = {};
   for (const pair of Object.keys(PAIR_CURRENCIES)) pairs[pair] = buildPairPolicyContext(pair, currencies);
   return {
@@ -256,13 +260,16 @@ function buildBISPolicyContext(seriesByCurrency, now = Date.now()) {
     datasetId: 'WS_CBPOL',
     frequency: 'DAILY',
     availableCurrencies: available,
+    freshCurrencies,
     expectedCurrencies: 8,
-    status: available === 8 ? 'FRESH_DAILY' : available ? 'PARTIAL_OR_STALE' : 'UNAVAILABLE',
+    status: available === 8
+      ? freshCurrencies === 8 ? 'FRESH_DAILY' : 'CURRENT_REFERENCE'
+      : available ? 'PARTIAL_OR_STALE' : 'UNAVAILABLE',
     currencies,
     pairs,
     signalEligible: false,
     attribution: 'Source: Bank for International Settlements (BIS), Central bank policy rates (WS_CBPOL). Data are reported directly to the BIS by member central banks. Policy-rate series are selected by participating central banks and may represent target, repo, discount or another identified policy instrument.',
-    disclaimer: 'Daily end-of-period observations are released around mid-week and may lag a new announcement. The rate differential is monetary-policy/carry context, not a predicted exchange-rate move or calibrated probability.',
+    disclaimer: 'Daily end-of-period observations are released around mid-week and may lag a new announcement. Observations up to 7 days old are labelled fresh daily; observations 8-14 days old are labelled delayed reference; observations older than 14 days are excluded from pair differentials. The rate differential is monetary-policy/carry context, not a predicted exchange-rate move or calibrated probability.',
     fetchedAt: new Date(now).toISOString()
   };
 }
