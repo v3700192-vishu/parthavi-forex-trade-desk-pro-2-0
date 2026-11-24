@@ -275,9 +275,9 @@ const USD_NEWS_POSITIVE = [
   /treasury yields?.{0,30}(rise|surge|jump|higher)/i
 ];
 const USD_NEWS_NEGATIVE = [
-  /fed.{0,35}(dovish|rate cut|cuts rates|easing)/i,
+  /fed.{0,35}(dovish|rate cut|cut rates|cuts rates|easing)/i,
   /(dovish|rate cut|cuts rates|easing).{0,35}fed/i,
-  /(cpi|pce|inflation).{0,45}(cooler|below estimates|misses forecasts|slows)/i,
+  /(cpi|pce|inflation).{0,45}(cooler|cools|below estimates|misses forecasts|slows)/i,
   /(non[- ]?farm|payroll|jobs?).{0,45}(miss|weaker|below estimates|fall)/i,
   /treasury yields?.{0,30}(fall|drop|slide|lower)/i
 ];
