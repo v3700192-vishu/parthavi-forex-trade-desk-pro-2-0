@@ -35,7 +35,9 @@ assert.equal(usd.ratePercent, 4);
 assert.equal(usd.lastChangeDate, '2026-11-18');
 assert.equal(usd.lastChangeBps, 13);
 
-const stale = buildCurrencyPolicyRate('USD', 'US', parsedRates, Date.parse('2026-12-01T12:00:00Z'));
+const delayed = buildCurrencyPolicyRate('USD', 'US', parsedRates, Date.parse('2026-11-30T12:00:00Z'));
+assert.equal(delayed.status, 'DELAYED_REFERENCE');
+const stale = buildCurrencyPolicyRate('USD', 'US', parsedRates, Date.parse('2026-12-04T12:00:00Z'));
 assert.equal(stale.status, 'STALE_DAILY');
 
 const rateSets = {
@@ -56,6 +58,7 @@ const rateSets = {
 const allPairs = buildBISPolicyContext(rateSets, now);
 assert.equal(allPairs.availableCurrencies, 8);
 assert.equal(allPairs.status, 'FRESH_DAILY');
+assert.equal(allPairs.freshCurrencies, 8);
 assert.equal(allPairs.pairs['EUR/USD'].differentialPercent, -1.5);
 assert.equal(allPairs.pairs['EUR/USD'].differentialBias, 'QUOTE_CARRY_ADVANTAGE');
 assert.equal(allPairs.pairs['USD/JPY'].differentialPercent, 2.75);
