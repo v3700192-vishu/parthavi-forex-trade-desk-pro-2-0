@@ -1104,7 +1104,7 @@ async function upstreamSelfCheck() {
     } else if(label==='ECB reference rates') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK latestDate='+value.meta.latestDate+' ageDays='+value.meta.ageDays+' pairs='+value.pairs.length+' freshness='+value.meta.freshness);
     } else if(label==='FRED global risk context') {
-      console.log('[UPSTREAM_CHECK] '+label+'=OK series='+value.availableSeries+'/5 status='+value.status+' USD='+value.usdBias+' risk='+value.riskRegime);
+      console.log('[UPSTREAM_CHECK] '+label+'=OK coreSeries='+value.availableSeries+'/'+value.expectedSeries+' status='+value.status+' USD='+value.usdBias+' conflict='+value.usdConflict+' risk='+value.riskRegime+' WTI='+value.optionalSeries.crudeOilStatus);
     } else if(label==='CFTC TFF currency positioning') {
       console.log('[UPSTREAM_CHECK] '+label+'=OK currencies='+value.availableCurrencies+'/7 status='+value.status+' report='+Object.values(value.currencies).filter(Boolean).map(item=>item.reportDate).sort().slice(-1)[0]);
     } else if(label==='EURUSD quote') {

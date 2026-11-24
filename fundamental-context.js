@@ -72,16 +72,35 @@ function buildGlobalRiskContext(seriesById, now = Date.now()) {
   const twoYear = latestSeriesSummary(series.DGS2, 5, now);
   const tenYear = latestSeriesSummary(series.DGS10, 5, now);
   const vix = latestSeriesSummary(series.VIXCLS, 5, now);
-  const oil = latestSeriesSummary(series.DCOILWTICO, 5, now);
+  const oil = latestSeriesSummary(series.DCOILWTICO, 10, now);
 
+  const coreSources = [broadUsd, twoYear, tenYear, vix];
+  const availableSeries = coreSources.filter(item => item.status === 'FRESH').length;
   const usdInputsFresh = broadUsd.status === 'FRESH' && twoYear.status === 'FRESH';
-  let usdScore = null, usdBias = 'MIXED';
+  let usdScore = null, usdBias = 'MIXED', usdConflict = false;
+  let dollarMomentum = null, yieldMomentum = null;
+  let usdBiasReason = 'REQUIRED_USD_OR_YIELD_SERIES_UNAVAILABLE';
+
   if (usdInputsFresh && Number.isFinite(broadUsd.changePercent) && Number.isFinite(twoYear.change)) {
-    const dollarMomentum = clamp(broadUsd.changePercent / 0.25, -1, 1);
-    const yieldMomentum = clamp((twoYear.change * 100) / 8, -1, 1);
+    dollarMomentum = clamp(broadUsd.changePercent / 0.25, -1, 1);
+    yieldMomentum = clamp((twoYear.change * 100) / 8, -1, 1);
     usdScore = round((0.65 * dollarMomentum) + (0.35 * yieldMomentum));
-    if (usdScore >= 0.3) usdBias = 'BULLISH';
-    else if (usdScore <= -0.3) usdBias = 'BEARISH';
+
+    usdConflict = Math.sign(dollarMomentum) !== Math.sign(yieldMomentum) &&
+      Math.abs(dollarMomentum) >= 0.25 && Math.abs(yieldMomentum) >= 0.25;
+
+    if (usdConflict) {
+      usdBias = 'MIXED';
+      usdBiasReason = 'BROAD_USD_INDEX_AND_2Y_YIELD_DIVERGENCE';
+    } else if (usdScore >= 0.3) {
+      usdBias = 'BULLISH';
+      usdBiasReason = 'USD_INDEX_AND_YIELD_CONTEXT_ALIGNED';
+    } else if (usdScore <= -0.3) {
+      usdBias = 'BEARISH';
+      usdBiasReason = 'USD_INDEX_AND_YIELD_CONTEXT_ALIGNED';
+    } else {
+      usdBiasReason = 'MACRO_MOMENTUM_WEAK_OR_NEUTRAL';
+    }
   }
 
   let riskRegime = 'UNAVAILABLE';
@@ -95,16 +114,26 @@ function buildGlobalRiskContext(seriesById, now = Date.now()) {
     }
   }
 
-  const availableSeries = [broadUsd, twoYear, tenYear, vix, oil]
-    .filter(item => item.status === 'FRESH').length;
   return {
     ok: true,
     provider: 'Federal Reserve Economic Data (FRED) public CSV download',
-    status: availableSeries === 5 ? 'FRESH' : availableSeries ? 'PARTIAL' : 'UNAVAILABLE',
+    status: availableSeries === 4 ? 'FRESH_CORE' : availableSeries ? 'PARTIAL_CORE' : 'UNAVAILABLE',
     availableSeries,
-    expectedSeries: 5,
+    expectedSeries: 4,
+    optionalSeries: {
+      available: oil.status === 'FRESH' ? 1 : 0,
+      expected: 1,
+      crudeOilStatus: oil.status,
+      crudeOilLatestDate: oil.latestDate || null
+    },
     usdBias,
     usdScore,
+    usdConflict,
+    usdBiasReason,
+    usdComponents: {
+      broadUsdMomentum: round(dollarMomentum, 3),
+      twoYearYieldMomentum: round(yieldMomentum, 3)
+    },
     riskRegime,
     sources: {
       broadUsdIndex: {
@@ -135,12 +164,14 @@ function buildGlobalRiskContext(seriesById, now = Date.now()) {
         seriesId: 'DCOILWTICO',
         name: 'WTI Crude Oil Spot Price',
         ...oil,
-        changeOverFiveObservationsPercent: round(oil.changePercent, 2)
+        changeOverFiveObservationsPercent: round(oil.changePercent, 2),
+        requiredForCoreStatus: false
       }
     },
     methodology: {
-      usdBias: 'Context score combines broad USD-index momentum and 2-year Treasury-yield momentum; this is a heuristic macro context, not a calibrated forecast.',
+      usdBias: 'USD context combines broad USD-index momentum and 2-year Treasury-yield momentum. Strong opposing inputs force MIXED instead of a directional bias. This is a heuristic macro context, not a calibrated forecast.',
       riskRegime: 'VIX level and recent percentage change classify broad risk regime; it is not a direct FX order-flow measure.',
+      oil: 'WTI is optional context; stale oil data does not make the core USD/risk series fresh or stale. Its own freshness is shown separately.',
       horizon: 'Daily macro observations, suitable as higher-timeframe context rather than a 5-minute trigger.'
     },
     signalEligible: false,

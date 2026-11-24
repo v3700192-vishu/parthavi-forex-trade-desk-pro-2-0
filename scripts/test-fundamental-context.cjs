@@ -35,13 +35,44 @@ const macro = buildGlobalRiskContext({
   ])
 }, now);
 
-assert.equal(macro.status, 'FRESH');
+assert.equal(macro.status, 'FRESH_CORE');
+assert.equal(macro.availableSeries, 4);
+assert.equal(macro.expectedSeries, 4);
 assert.equal(macro.usdBias, 'BULLISH');
+assert.equal(macro.usdConflict, false);
+assert.equal(macro.optionalSeries.crudeOilStatus, 'FRESH');
 assert.equal(macro.riskRegime, 'RISK_OFF');
 assert.equal(macro.sources.twoYearYield.changeOverFiveObservationsBasisPoints, 10);
 assert.equal(buildPairGlobalRiskContext(macro, 'EUR/USD').usdPairBias, 'BEARISH');
 assert.equal(buildPairGlobalRiskContext(macro, 'USD/JPY').usdPairBias, 'BULLISH');
 assert.equal(buildPairGlobalRiskContext(macro, 'USD/JPY').riskRegime, 'RISK_OFF');
+
+const divergentMacro = buildGlobalRiskContext({
+  DTWEXBGS: series([
+    ['2026-11-17', 102.5], ['2026-11-18', 102.6], ['2026-11-19', 102.7],
+    ['2026-11-20', 102.8], ['2026-11-23', 103.0]
+  ]),
+  DGS2: series([
+    ['2026-11-17', 4.10], ['2026-11-18', 4.08], ['2026-11-19', 4.06],
+    ['2026-11-20', 4.04], ['2026-11-23', 3.85]
+  ]),
+  DGS10: series([
+    ['2026-11-17', 4.30], ['2026-11-18', 4.28], ['2026-11-19', 4.26],
+    ['2026-11-20', 4.24], ['2026-11-23', 4.10]
+  ]),
+  VIXCLS: series([
+    ['2026-11-17', 20], ['2026-11-18', 21], ['2026-11-19', 22],
+    ['2026-11-20', 23], ['2026-11-23', 35]
+  ]),
+  DCOILWTICO: series([['2026-11-13', 89.53]])
+}, now);
+assert.equal(divergentMacro.status, 'FRESH_CORE');
+assert.equal(divergentMacro.usdBias, 'MIXED', 'strongly opposing USD index and yield inputs must not create a directional bias');
+assert.equal(divergentMacro.usdConflict, true);
+assert.equal(divergentMacro.usdBiasReason, 'BROAD_USD_INDEX_AND_2Y_YIELD_DIVERGENCE');
+assert.equal(divergentMacro.optionalSeries.crudeOilStatus, 'STALE');
+assert.equal(buildPairGlobalRiskContext(divergentMacro, 'EUR/USD').usdPairBias, 'MIXED');
+assert.equal(divergentMacro.riskRegime, 'RISK_OFF');
 
 const staleMacro = buildGlobalRiskContext({
   DTWEXBGS: series([['2026-11-01', 100], ['2026-11-02', 101]]),

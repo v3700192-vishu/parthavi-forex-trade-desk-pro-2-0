@@ -61,7 +61,8 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 ## Daily macro and economic-surprise context
 
 - The API caches five public FRED CSV series for six hours: DTWEXBGS (broad trade-weighted USD index), DGS2 and DGS10 (Treasury yields), VIXCLS (VIX), and DCOILWTICO (WTI crude oil).
-- Broad USD context combines the broad USD-index move and 2-year yield move over five observations. VIX level and its five-observation change produce a coarse risk-regime label. These are transparent macro context heuristics, not calibrated forecasts.
+- Core USD/risk freshness requires the broad USD index (DTWEXBGS), 2Y yield (DGS2), 10Y yield (DGS10) and VIX (VIXCLS). WTI crude (DCOILWTICO) is optional and its own freshness is shown separately; stale oil does not mark all core macro data stale.
+- Broad USD context combines the broad USD-index move and 2-year yield move over five observations. Strong opposing USD-index and yield momentum forces MIXED rather than choosing a direction. VIX level and its five-observation change produce a coarse risk-regime label. These are transparent macro context heuristics, not calibrated forecasts.
 - Economic-calendar events are scored only when actual and forecast values are both present, the event is in the past, its importance is known, and its name matches an explicit macro-event rule. The current event window is 72 hours with time decay.
 - Higher inflation is treated as a possible hawkish-expectations channel, not a guaranteed currency-positive reaction. Unemployment-rate and claims surprises use inverted polarity. Growth, activity and policy-rate surprises use a stronger-activity/higher-rate polarity.
 - The current market-news feed is a limited US headline sample. Only explicit Fed/rates, inflation, employment and Treasury-yield phrases are classified; this is low-confidence keyword research context, not NLP sentiment or a directional vote.

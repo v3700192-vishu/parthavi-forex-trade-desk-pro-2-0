@@ -1826,6 +1826,8 @@ function renderFundamentalContext(context){
   setNodeText('fundamentalEventBias',String(events.direction||'MIXED')+' · '+String(events.eventCount||0)+' events');
   setNodeText('fundamentalNewsBias',String(news.pairBias||'MIXED')+' · '+String(news.matchedHeadlines||0)+' matched');
   const status='FRED '+String(sources.globalRisk||'UNAVAILABLE')+
+    ' · WTI '+String(global.optionalSeries&&global.optionalSeries.crudeOilStatus||'UNAVAILABLE')+
+    ' · USD/YIELD '+String(global.usdBiasReason||'UNKNOWN').replaceAll('_',' ')+
     ' · CALENDAR '+String(sources.calendar||'UNAVAILABLE')+
     ' ('+String(sources.calendarItems||0)+') · NEWS '+String(sources.news||'UNAVAILABLE')+
     ' ('+String(sources.newsItems||0)+')';
