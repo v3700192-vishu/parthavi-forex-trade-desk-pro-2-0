@@ -79,6 +79,9 @@ function parseOfficialFeedXml(xml, source, now = Date.now()) {
   if (typeof xml !== 'string' || !xml.trim() || xml.length > MAX_FEED_BYTES) {
     throw new Error('central_bank_feed_invalid_size');
   }
+  if (!/<(?:rss|rdf:RDF|feed)\b/i.test(xml)) {
+    throw new Error('central_bank_feed_invalid_xml_root');
+  }
   const blocks = [...xml.matchAll(/<(item|entry)\b[\s\S]*?<\/\1\s*>/gi)].map(match => match[0]);
   const items = [];
   const seen = new Set();
@@ -254,6 +257,16 @@ async function fetchOneOfficialFeed(source, now = Date.now(), fetchImpl = fetch)
         currency: source.currency, bank: source.bank, feed: source.feed, url: source.url,
         status: 'UNAVAILABLE', httpStatus: response.status, items: [],
         error: 'HTTP_' + response.status
+      };
+    }
+    const finalUrl = new URL(response.url || source.url);
+    const finalHost = finalUrl.hostname.toLowerCase();
+    if (finalUrl.protocol !== 'https:' ||
+        (finalHost !== source.host && !finalHost.endsWith('.' + source.host))) {
+      return {
+        currency: source.currency, bank: source.bank, feed: source.feed, url: source.url,
+        status: 'UNAVAILABLE', httpStatus: response.status, items: [],
+        error: 'REDIRECTED_OUTSIDE_OFFICIAL_HOST'
       };
     }
     const xml = await response.text();
