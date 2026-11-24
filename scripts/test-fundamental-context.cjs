@@ -64,7 +64,7 @@ const divergentMacro = buildGlobalRiskContext({
     ['2026-11-17', 20], ['2026-11-18', 21], ['2026-11-19', 22],
     ['2026-11-20', 23], ['2026-11-23', 35]
   ]),
-  DCOILWTICO: series([['2026-11-17', 89.53]])
+  DCOILWTICO: series([['2026-11-13', 89.53]])
 }, now);
 assert.equal(divergentMacro.status, 'FRESH_CORE');
 assert.equal(divergentMacro.usdBias, 'MIXED', 'strongly opposing USD index and yield inputs must not create a directional bias');
