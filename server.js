@@ -21,6 +21,7 @@ const PORT = Number(process.env.PORT || 10000);
 const PROVIDER = 'Biquote';
 const PROVIDER_BASE = 'https://biquote.io';
 const SIFTING_REST_BASE = 'https://api.sifting.io';
+const SIFTING_REST_FALLBACK_ENABLED = process.env.SIFTINGIO_REST_FALLBACK === 'true';
 const SITE_ORIGIN = 'https://parthavi-forex-trade-desk-pro-2-0.onrender.com';
 const PAIRS = new Set(['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD']);
 const INTERVALS = new Map([
@@ -194,6 +195,7 @@ async function getQuote(pair) {
     quoteCache.set(cacheKey,{at:Date.now(),value:result});
     return result;
   } catch(primaryError) {
+    if(!SIFTING_REST_FALLBACK_ENABLED) throw primaryError;
     try {
       const fallback=await getSiftingRestQuote(pair);
       fallback.meta.primaryError=safeError(primaryError);
@@ -521,6 +523,7 @@ async function getCandles(pair,timeframe) {
     url.searchParams.set('limit',String(spec.limit));
     data=await providerJson(url);
   } catch(primaryError) {
+    if(!SIFTING_REST_FALLBACK_ENABLED) throw primaryError;
     try {
       const fallback=await getSiftingCandles(pair,timeframe,spec);
       fallback.meta.primaryError=safeError(primaryError);
@@ -676,7 +679,7 @@ const server=http.createServer(async(req,res)=>{
       ok:true,service:'PARTHAVI FOREX DATA API',
       provider:PROVIDER,providerConfigured:true,authenticationRequired:false,
       independentSource:getIndependentSourceStatus(),
-      fallbackProviderConfigured:Boolean(process.env.SIFTINGIO_API_KEY),
+      fallbackProviderConfigured:Boolean(process.env.SIFTINGIO_API_KEY&&SIFTING_REST_FALLBACK_ENABLED),
       feedMode:'Biquote primary with SiftingIO REST quote/OHLC fallback and independent WebSocket diagnostics',
       freshnessRule:'provider quoteAgeSeconds + candle timestamp checked; stale or closed market blocks signals',
       usageRights:'Provider terms permit use and display in web dashboards; do not redistribute raw feed.',
