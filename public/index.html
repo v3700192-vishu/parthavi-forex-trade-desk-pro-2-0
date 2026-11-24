@@ -750,6 +750,25 @@ body{color:#fff!important}
   <div class="tablewrap"><table><thead><tr><th>PAIR</th><th>FED H.10 RATE</th><th>ECB RATE · SAME DATE</th><th>DIFFERENCE VS ECB</th><th>OBSERVATION DATE</th></tr></thead><tbody id="fedReferenceBody"><tr><td colspan="5" class="blank" style="text-align:center;padding:18px">Waiting for Federal Reserve H.10 reference data…</td></tr></tbody></table></div>
   <div class="notice" id="fedReferenceNote" style="margin-top:10px">Federal Reserve H.10 daily observations are released weekly. Values are compared with ECB reference rates on the same date. This is reference validation only, never a live quote, executable price or intraday directional vote.</div>
  </div>
+ <div class="card section" id="officialCentralBankNewsCard">
+  <div class="cardhead"><h3>Official Central Bank News & Policy Language · 8 Currencies</h3><span class="tag muted" id="officialCentralBankNewsStatus">SOURCE CONNECTING</span></div>
+  <div class="grid fundgrid">
+   <div class="fund"><small>SELECTED PAIR POLICY NEWS</small><b id="centralBankNewsPairBias">WAIT</b><p id="centralBankNewsPairNote">Waiting for base/quote official headlines</p></div>
+   <div class="fund"><small>OFFICIAL SOURCE COVERAGE</small><b id="centralBankNewsCoverage">—</b><p id="centralBankNewsFeedCoverage">—</p></div>
+   <div class="fund"><small>POLICY-RELEVANT HEADLINES</small><b id="centralBankNewsScoredCount">—</b><p>Explicit rate / hawkish / dovish statements only</p></div>
+   <div class="fund"><small>UNCLASSIFIED HEADLINES</small><b id="centralBankNewsUnscoredCount">—</b><p>Context only · no directional vote</p></div>
+  </div>
+  <div class="card section" style="margin-top:10px">
+   <div class="cardhead"><h3>Currency-by-Currency Official Source Status</h3><span class="tag muted">RESEARCH CONTEXT</span></div>
+   <div class="tablewrap"><table><thead><tr><th>CURRENCY</th><th>CENTRAL BANK</th><th>FEED STATUS</th><th>ITEMS</th><th>POLICY BIAS</th><th>LATEST PUBLICATION</th></tr></thead>
+   <tbody id="officialCentralBankNewsCurrencies"><tr><td colspan="6" class="blank" style="text-align:center;padding:18px">Waiting for official Central Bank feeds…</td></tr></tbody></table></div>
+  </div>
+  <div class="card section" style="margin-top:10px">
+   <div class="cardhead"><h3>Selected Pair · Latest Base / Quote Central Bank Headlines</h3><span class="tag muted" id="officialCentralBankNewsPairTag">WAITING</span></div>
+   <div id="officialCentralBankNewsFeed" class="news-feed"><div class="notice">Official Central Bank headlines will appear after the source feeds respond.</div></div>
+  </div>
+  <div class="notice" id="officialCentralBankNewsNote" style="margin-top:10px">Official Central Bank publication context. Only explicit rate changes and clear hawkish/dovish policy language are scored. This is not a calibrated prediction, probability or standalone trade signal.</div>
+ </div>
  <div class="card section" id="marketNewsCard">
   <div class="cardhead"><h3>Latest Market News</h3><span class="tag muted" id="marketNewsStatus">SOURCE CONNECTING</span></div>
   <div id="marketNewsFeed" class="news-feed"><div class="notice">Market headlines will appear when the upstream news feed responds.</div></div>
@@ -1853,6 +1872,104 @@ function renderPolicyRateContext(context){
   if(node)node.style.color=value.status==='FRESH_DAILY'?'#8ff0c6':'#ffe39a';
 }
 
+function renderOfficialCentralBankNews(context){
+  const value=context&&context.centralBankNews&&typeof context.centralBankNews==='object'
+    ?context.centralBankNews:{};
+  const status=String(value.overallStatus||'UNAVAILABLE').replaceAll('_',' ');
+  const coverage=Number(value.availableCurrencies)||0;
+  const expected=Number(value.expectedCurrencies)||8;
+  setNodeText('officialCentralBankNewsStatus',status+' · '+coverage+'/'+expected+' CURRENCIES');
+  setNodeText('centralBankNewsCoverage',coverage+'/'+expected);
+  setNodeText('centralBankNewsFeedCoverage',(Number(value.connectedFeeds)||0)+'/'+(Number(value.expectedFeeds)||9)+' FEEDS CONNECTED');
+  const pairBias=value.direction||'WAIT';
+  setNodeText('centralBankNewsPairBias',pairBias+' · '+String(value.status||'UNAVAILABLE').replaceAll('_',' '));
+  setNodeText('officialCentralBankNewsPairTag',(value.pair||'SELECTED PAIR')+' · '+pairBias);
+  const base=value.baseCurrencyContext||{},quote=value.quoteCurrencyContext||{};
+  const scored=Number(base.policyRelevantCount||0)+Number(quote.policyRelevantCount||0);
+  const total=Number(base.itemCount||0)+Number(quote.itemCount||0);
+  setNodeText('centralBankNewsScoredCount',String(scored));
+  setNodeText('centralBankNewsUnscoredCount',String(Math.max(0,total-scored)));
+  setNodeText('centralBankNewsPairNote',String(value.baseCurrency||'—')+' '+String(base.bias||'WAIT')+' vs '+String(value.quoteCurrency||'—')+' '+String(quote.bias||'WAIT'));
+  const note=$('#officialCentralBankNewsNote');
+  if(note){
+    note.textContent='Official Central Bank RSS / Atom feeds · '+coverage+'/'+expected+' currencies connected · '+String(value.connectedFeeds||0)+'/'+String(value.expectedFeeds||9)+' feeds. Only explicit rate hikes/cuts, hawkish/dovish policy language and clear currency-support intervention are scored. Generic or administrative headlines are shown as context only. This heuristic does not alter the 68% calibrated-probability gate and is not a standalone trade signal.';
+  }
+  const currencyBody=$('#officialCentralBankNewsCurrencies');
+  if(currencyBody){
+    currencyBody.innerHTML='';
+    const names=['USD','EUR','GBP','JPY','CHF','AUD','NZD','CAD'];
+    names.forEach(currency=>{
+      const item=value.currencySources&&value.currencySources[currency]||null;
+      const row=document.createElement('tr');
+      const fields=[
+        currency,
+        item&&item.centralBank||'—',
+        item&&item.sourceStatus||'UNAVAILABLE',
+        item?String(item.itemCount||0)+' · '+String(item.connectedFeeds||0)+'/'+String(item.expectedFeeds||0):'—',
+        item&&item.bias||'WAIT',
+        item&&item.latestPublishedAt?new Date(item.latestPublishedAt).toLocaleString():'—'
+      ];
+      fields.forEach((field,index)=>{
+        const cell=document.createElement('td');
+        cell.textContent=String(field);
+        if(index===0||index===4)cell.style.fontWeight='900';
+        if(index===4)cell.style.color=field==='BULLISH'?'#8ff0c6':field==='BEARISH'?'#ff9ba2':'#ffe39a';
+        if(index===2&&field==='UNAVAILABLE')cell.style.color='#ff9ba2';
+        row.appendChild(cell);
+      });
+      currencyBody.appendChild(row);
+    });
+  }
+  const feed=$('#officialCentralBankNewsFeed');
+  if(feed){
+    feed.innerHTML='';
+    const candidates=[
+      ...(Array.isArray(base.recentHeadlines)?base.recentHeadlines:[]),
+      ...(Array.isArray(quote.recentHeadlines)?quote.recentHeadlines:[])
+    ];
+    const seen=new Set();
+    const items=candidates.filter(item=>{
+      const key=String(item.url||item.title||'').toLowerCase();
+      if(!key||seen.has(key))return false;
+      seen.add(key);return true;
+    }).sort((a,b)=>Date.parse(b.publishedAt)-Date.parse(a.publishedAt)).slice(0,8);
+    if(!items.length){
+      const empty=document.createElement('div');
+      empty.className='notice';
+      empty.textContent='No recent base/quote Central Bank headlines available. Missing feeds or missing headlines are not converted into a neutral vote.';
+      feed.appendChild(empty);
+    }else{
+      items.forEach(item=>{
+        const card=document.createElement('div');
+        card.className='news-item';
+        const title=document.createElement('a');
+        title.textContent=item.title||'Untitled official release';
+        try{
+          const url=new URL(String(item.url||''));
+          if(url.protocol==='https:'){title.href=url.toString();title.target='_blank';title.rel='noopener noreferrer';}
+        }catch{}
+        const meta=document.createElement('div');
+        meta.className='news-meta';
+        const classification=item.classification||{};
+        meta.textContent=[
+          item.currency||'—',
+          item.centralBank||'Central Bank',
+          item.feedName||'Official feed',
+          item.publishedAt?new Date(item.publishedAt).toLocaleString():'—',
+          classification.direction||'UNSCORED',
+          Array.isArray(classification.categories)&&classification.categories.length?classification.categories.join(', '):'NO EXPLICIT POLICY VOTE'
+        ].join(' · ');
+        const desc=document.createElement('p');
+        desc.textContent=item.description||'No feed summary supplied.';
+        card.append(title,meta,desc);
+        feed.appendChild(card);
+      });
+    }
+  }
+  const node=$('#centralBankNewsPairBias');
+  if(node)node.style.color=pairBias==='BULLISH'?'#8ff0c6':pairBias==='BEARISH'?'#ff9ba2':'#ffe39a';
+}
+
 function renderFundamentalContext(context){
   const value=context&&typeof context==='object'?context:{};
   const global=value.globalRisk||{},events=value.economicSurprises||{},news=value.usdNews||{};
@@ -1949,6 +2066,7 @@ function renderShadowEngine(data){
   renderDirectionalSentiment(live.directionalSentiment,data.pair);
   renderCftcPositioning(live.marketContext&&live.marketContext.cftcPositioning);
   renderFundamentalContext(live.marketContext&&live.marketContext.fundamentals);
+  renderOfficialCentralBankNews(live.marketContext&&live.marketContext.fundamentals);
   renderPolicyRateContext(live.marketContext&&live.marketContext.centralBankPolicy);
   if(live.independentSource){
    const independent=live.independentSource;
