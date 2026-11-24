@@ -68,9 +68,10 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - The history window is limited by the upstream OHLC endpoint, so the research set may be too small. The 200-sample minimum is only a research-screen threshold, not proof of a profitable strategy.
 - The displayed historical accuracy is not a future probability. The nominal pooled Wilson lower bound is descriptive only because pairs and time-series observations are correlated; its IID assumptions are not established. The engine emits no probability, `probabilityCalibrated=false`, `validated=false`, and `liveEligible=false`. Final trade state remains WAIT.
 - A separate browser-local forward ledger records a forecast only when the current quote and that timeframe's closed candles are fresh. The entry is evaluated against the close three further completed candles later. It reports HIT/MISS/FLAT and a historical hit rate; flat outcomes are excluded from the hit-rate denominator.
+- The walk-forward report also includes a volatility-scaled barrier study: the mean of the prior 14 true ranges sets a 1× risk stop and a 2× risk target over the same three-completed-candle horizon. It records target-first, stop-first, no-touch and same-candle ambiguous outcomes, plus MFE/MAE in initial risk (R) units. Both barriers touched in one OHLC candle are marked ambiguous and never counted as target wins.
 - Forward records are kept in the current browser's local storage, are not synced to other devices, and can be lost if browser data is cleared. This tracker is shadow research only, not a calibrated probability or broker execution result. No automatic orders are sent.
 
-No Brier score or probability calibration result is displayed because no calibrated probability model exists. MFE/MAE and a stop-loss/target outcome simulator remain future work.
+No Brier score or probability calibration result is displayed because no calibrated probability model exists. Barrier and MFE/MAE results are historical OHLC research only: spread, slippage, financing, gaps and broker execution are not fully simulated, and same-candle dual touches are ambiguous. These metrics do not establish profitability or a future probability.
 
 ## Derived cross-pair analytics
 
@@ -80,7 +81,7 @@ No Brier score or probability calibration result is displayed because no calibra
 
 ## Validation
 
-`npm run check` validates `server.js` and `shadow-engine.js` syntax, runs deterministic direction / walk-forward / probability-gate tests for the shadow engine, and checks every inline browser JavaScript block for syntax. It does not validate predictive profitability or calibrated probability.
+`npm run check` validates `server.js` and `shadow-engine.js` syntax, runs deterministic direction / walk-forward / barrier / MFE-MAE / probability-gate tests for the shadow engine, and checks every inline browser JavaScript block for syntax. It does not validate predictive profitability or calibrated probability.
 
 ## Run locally
 
