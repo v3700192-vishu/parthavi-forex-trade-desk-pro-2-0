@@ -22,6 +22,7 @@ const PROVIDER = 'Biquote';
 const PROVIDER_BASE = 'https://biquote.io';
 const SIFTING_REST_BASE = 'https://api.sifting.io';
 const SIFTING_REST_FALLBACK_ENABLED = process.env.SIFTINGIO_REST_FALLBACK === 'true';
+const SIFTINGIO_WS_WATCHLIST_ENABLED = process.env.SIFTINGIO_WS_WATCHLIST === 'true';
 const SITE_ORIGIN = 'https://parthavi-forex-trade-desk-pro-2-0.onrender.com';
 const PAIRS = new Set(['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD']);
 const INTERVALS = new Map([
@@ -744,6 +745,7 @@ const server=http.createServer(async(req,res)=>{
     return respond(res,200,{ok:true,source:getIndependentSourceStatus(),quote:getIndependentQuote(pair)});
   }
   if(url.pathname==='/api/forex/watchlist-quotes') {
+    if(!SIFTINGIO_WS_WATCHLIST_ENABLED) return respond(res,503,{ok:false,error:'websocket_watchlist_disabled'});
     selectIndependentPair(pair||'EUR/USD');
     const quotes=Object.fromEntries([...PAIRS].map(symbol=>[symbol,independentQuoteAsApiQuote(symbol)]));
     return respond(res,200,{
