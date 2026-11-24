@@ -203,7 +203,7 @@ function buildPairPolicyContext(pair, rates) {
       baseCurrency, quoteCurrency,
       baseRatePercent: base && base.ratePercent,
       quoteRatePercent: quote && quote.ratePercent,
-      rateDifferentialPercent: null,
+      differentialPercent: null,
       differentialBias: 'UNAVAILABLE',
       signalEligible: false
     };
