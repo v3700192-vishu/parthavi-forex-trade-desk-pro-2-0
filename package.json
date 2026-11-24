@@ -6,8 +6,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check shadow-engine.js && node --check independent-source.js && node scripts/test-shadow-engine.cjs && node scripts/test-independent-source.cjs && node scripts/check-inline-scripts.cjs"
+    "check": "node --check server.js && node --check shadow-engine.js && node --check public/pwa.js && node --check public/sw.js && node --check independent-source.js && node scripts/test-shadow-engine.cjs && node scripts/test-independent-source.cjs && node scripts/check-inline-scripts.cjs && node scripts/test-pwa-assets.cjs"
   },
-  "engines": { "node": ">=20" },
-  "dependencies": { "ws": "^8.18.0" }
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
 }
