@@ -28,6 +28,7 @@ Supported chart intervals: 5M, 15M, 30M, 1H and 4H.
 - `GET /api/forex/candles?pair=EUR/USD&timeframe=15M` — validated closed OHLC bars
 - `GET /api/forex/reference-rates` — daily ECB reference rates for the seven supported pairs, relayed by Frankfurter; reference context only, never a live signal
 - `GET /api/forex/fed-reference-rates` — Federal Reserve H.10 weekly-published daily observations, compared with ECB rates on the same observation date; reference validation only, never a live signal
+- `GET /api/forex/cot-positioning?pair=EUR/USD` — official CFTC Traders in Financial Futures futures-only positioning for the seven USD-major currency futures, with leveraged-fund and asset-manager net positions and 52-week percentiles
 - `GET /api/forex/shadow-engine?pair=EUR/USD&timeframe=15M` — fixed-rule shadow direction, five-timeframe freshness/alignment and walk-forward research metrics; never a live trade signal
 
 Biquote's terms permit using and displaying its data in web dashboards, but prohibit reselling or redistributing the raw feed. Its quotes/candles are indicative third-party data, may be delayed, incomplete or wrong, and have no uptime SLA. Do not present them as guaranteed executable broker prices or regulated benchmark rates. See:
@@ -56,6 +57,14 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - Biquote is one indicative source, not independent source agreement. Therefore the forecast remains **WAIT** until independent corroboration, top-down timeframe checks, and out-of-sample probability calibration are implemented and validated.
 - No broker order execution is implemented.
 - EMA, RSI, MACD, ATR, Bollinger Bands and Wilder ADX 14 are computed from returned closed OHLC candles. Confirmed swing points, BOS/CHoCH, support/resistance, 20-bar breakout checks and ATR distance planning are displayed as analytical context only. Real traded FX volume is not inferred from tick volume.
+
+## Weekly CFTC positioning intelligence
+
+- The API reads the official CFTC Public Reporting Environment TFF futures-only dataset (gpe5-46if) without an API token, selecting the seven CME currency futures contracts: EUR 099741, GBP 096742, JPY 097741, CHF 092741, AUD 232741, NZD 112741 and CAD 090741.
+- The backend caches the response for six hours and computes leveraged-fund and asset-manager net positions as a percentage of open interest, weekly changes, and rolling 52-report percentiles.
+- Pair direction accounts for quote-currency inversion: a long JPY, CHF or CAD futures positioning bias maps inversely to USD/JPY, USD/CHF or USD/CAD; long EUR, GBP, AUD and NZD maps in the same direction as their USD pairs.
+- CFTC reports are weekly, based on Tuesday positions and generally released Friday at 3:30 p.m. America/New_York. The dashboard labels this data as weekly positioning context, not intraday spot flow or a live trade signal.
+- The CFTC context is displayed separately and is not yet fed into the walk-forward probability model. It must be time-aligned to the Friday publication time before it can be used in any historical model training, to avoid look-ahead leakage.
 
 ## Risk and signal gating
 
