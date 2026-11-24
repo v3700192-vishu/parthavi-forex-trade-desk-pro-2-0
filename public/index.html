@@ -1829,7 +1829,7 @@ body{color:#fff!important}
 
 function renderPolicyRateContext(context){
   const value=context&&typeof context==='object'?context:{};
-  const usable=['FRESH_DAILY','STALE_DAILY'].includes(value.status);
+  const usable=['FRESH_DAILY','DELAYED_REFERENCE'].includes(value.status);
   const fmt=rate=>hasNumber(rate)?Number(rate).toFixed(3)+'%':'—';
   const dateText=(date,change)=>date?(date+' · '+(hasNumber(change)?(Number(change)>0?'+':'')+Number(change)+' bp':'change unreported')):'No change in lookback';
   setNodeText('policySourceStatus',usable
@@ -1847,10 +1847,10 @@ function renderPolicyRateContext(context){
       ' · '+String(value.quoteCurrency||'')+' observation '+String(value.quoteObservationDate||'—')+
       ' · 90d relative move '+(hasNumber(value.relativeMove90dBps)?Number(value.relativeMove90dBps)+' bp':'unavailable')+
       ' · '+String(value.relativePolicyMove||'UNAVAILABLE').replaceAll('_',' ')+
-      '. BIS publishes daily end-of-period data around mid-week. Policy expectations may already be priced; context only.'
+      '. BIS publishes daily end-of-period data around mid-week. Fresh ≤7d; delayed reference 8–14d; older observations excluded. Policy expectations may already be priced; context only.'
     :'BIS daily policy-rate data unavailable or stale. No rate differential inferred.');
   const node=$('#policySourceStatus');
-  if(node)node.style.color=usable?'#8ff0c6':'#ffe39a';
+  if(node)node.style.color=value.status==='FRESH_DAILY'?'#8ff0c6':'#ffe39a';
 }
 
 function renderFundamentalContext(context){
