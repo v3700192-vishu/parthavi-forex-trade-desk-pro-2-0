@@ -42,6 +42,16 @@ const REFERENCE_CACHE_MS = 15 * 60 * 1000;
 const FED_REFERENCE_CACHE_MS = 6 * 60 * 60 * 1000;
 const SHADOW_CACHE_MS = 60 * 1000;
 const RESEARCH_CANDLE_CACHE_MS = 6 * 60 * 60 * 1000;
+const SIFTING_REST_MIN_INTERVAL_MS = 1250;
+const SIFTING_REST_MAX_RETRIES = 1;
+const SIFTING_REST_MAX_INLINE_RETRY_MS = 15000;
+let siftingRestQueue = Promise.resolve();
+let siftingNextRequestAt = 0;
+const siftingRestUsage = {
+  rateLimit: null, rateRemaining: null,
+  quotaLimit: null, quotaUsed: null, quotaRemaining: null,
+  lastStatus: null, lastAt: null, retryAfterSeconds: null
+};
 const researchCandleCache = new Map();
 const researchCandleInflight = new Map();
 const FED_H10_SERIES = [
@@ -128,23 +138,79 @@ async function providerJson(url) {
 function safeError(error) {
   return String(error && error.message || 'upstream_unavailable').replace(/[\r\n]/g,' ').slice(0,180);
 }
+function sleepMs(ms) {
+  return new Promise(resolve=>setTimeout(resolve,Math.max(0,ms)));
+}
+function numericHeader(headers,name) {
+  const value=Number(headers.get(name));
+  return Number.isFinite(value)?value:null;
+}
+function scheduleSiftingRest(work) {
+  const task=siftingRestQueue.then(async()=>{
+    const waitMs=Math.max(0,siftingNextRequestAt-Date.now());
+    if(waitMs>0) await sleepMs(waitMs);
+    try {
+      return await work();
+    } finally {
+      // Keep the free-tier REST burst below its 60 requests/minute ceiling.
+      siftingNextRequestAt=Date.now()+SIFTING_REST_MIN_INTERVAL_MS;
+    }
+  });
+  siftingRestQueue=task.then(()=>undefined,()=>undefined);
+  return task;
+}
 async function siftingJson(url, timeoutMs = 15000) {
   const key=process.env.SIFTINGIO_API_KEY;
   if(!key) { const e=new Error('siftingio_api_key_not_configured');e.statusCode=503;throw e; }
-  const response=await fetch(url,{
-    headers:{'Accept':'application/json','Accept-Encoding':'gzip','X-API-Key':key},
-    signal:AbortSignal.timeout(timeoutMs)
+  return scheduleSiftingRest(async()=>{
+    for(let attempt=0;attempt<=SIFTING_REST_MAX_RETRIES;attempt++) {
+      const response=await fetch(url,{
+        headers:{'Accept':'application/json','Accept-Encoding':'gzip','X-API-Key':key},
+        signal:AbortSignal.timeout(timeoutMs)
+      });
+      let data=null;
+      try { data=await response.json(); } catch { /* handled below */ }
+
+      siftingRestUsage.rateLimit=numericHeader(response.headers,'x-ratelimit-limit');
+      siftingRestUsage.rateRemaining=numericHeader(response.headers,'x-ratelimit-remaining');
+      siftingRestUsage.quotaLimit=numericHeader(response.headers,'x-quota-limit');
+      siftingRestUsage.quotaUsed=numericHeader(response.headers,'x-quota-used');
+      siftingRestUsage.quotaRemaining=numericHeader(response.headers,'x-quota-remaining');
+      siftingRestUsage.lastStatus=response.status;
+      siftingRestUsage.lastAt=new Date().toISOString();
+
+      if(!response.ok) {
+        const code=String(data&&data.error||'siftingio_http_'+response.status).slice(0,100);
+        const retryAfterHeader=response.headers.get('retry-after');
+        const retryAfterValue=data&&data.retry_after!==undefined?data.retry_after:retryAfterHeader;
+        const retryAfterSeconds=Number(retryAfterValue);
+        siftingRestUsage.retryAfterSeconds=Number.isFinite(retryAfterSeconds)?retryAfterSeconds:null;
+
+        // A burst limit is temporary; honour the provider's Retry-After once.
+        // Monthly quota exhaustion is permanent until reset and is never retried.
+        if(response.status===429 && code==='rate_limit_exceeded' &&
+           attempt<SIFTING_REST_MAX_RETRIES && Number.isFinite(retryAfterSeconds) &&
+           retryAfterSeconds>=0 && retryAfterSeconds*1000<=SIFTING_REST_MAX_INLINE_RETRY_MS) {
+          await sleepMs(Math.max(1000,retryAfterSeconds*1000)+250);
+          continue;
+        }
+        const detail=code==='monthly_quota_exceeded'
+          ?code+'_used_'+String(data&&data.used)+'_of_'+String(data&&data.quota)
+          :code+(Number.isFinite(retryAfterSeconds)?'_retry_after_'+retryAfterSeconds+'s':'');
+        const e=new Error(detail.slice(0,160));
+        e.statusCode=response.status===404?404:response.status===429?429:502;
+        throw e;
+      }
+      if(!data||typeof data!=='object') {
+        const e=new Error('siftingio_invalid_response');e.statusCode=502;throw e;
+      }
+      siftingRestUsage.retryAfterSeconds=null;
+      return data;
+    }
+    const e=new Error('siftingio_retry_budget_exhausted');
+    e.statusCode=429;
+    throw e;
   });
-  let data=null;
-  try { data=await response.json(); } catch { /* handled below */ }
-  if(!response.ok) {
-    const code=String(data&&data.error||'siftingio_http_'+response.status).slice(0,100);
-    const e=new Error(code);e.statusCode=response.status===404?404:response.status===429?429:502;throw e;
-  }
-  if(!data||typeof data!=='object') {
-    const e=new Error('siftingio_invalid_response');e.statusCode=502;throw e;
-  }
-  return data;
 }
 async function getSiftingRestQuote(pair) {
   const url=new URL('/v1/last/quote/forex/'+symbolFor(pair),SIFTING_REST_BASE);
@@ -760,6 +826,7 @@ const server=http.createServer(async(req,res)=>{
       ok:true,service:'PARTHAVI FOREX DATA API',
       provider:PROVIDER,providerConfigured:true,authenticationRequired:false,
       independentSource:getIndependentSourceStatus(),
+      siftingRestUsage:{...siftingRestUsage},
       fallbackProviderConfigured:Boolean(process.env.SIFTINGIO_API_KEY&&SIFTING_REST_FALLBACK_ENABLED),
       websocketWatchlistEnabled:SIFTINGIO_WS_WATCHLIST_ENABLED,
       websocketFirstQuotePolicy:SIFTINGIO_WS_FIRST_QUOTES_ENABLED,
