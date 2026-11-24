@@ -167,7 +167,6 @@ async function getSiftingRestQuote(pair) {
   };
 }
 async function getQuote(pair) {
-  selectIndependentPair(pair);
   const cacheKey=pair, cached=quoteCache.get(cacheKey);
   if(cached && Date.now()-cached.at<QUOTE_CACHE_MS) return {...cached.value,cache:'HIT'};
   try {
@@ -205,6 +204,10 @@ async function getQuote(pair) {
       streamQuote.meta.fallbackFrom='Biquote REST via SiftingIO WebSocket';
       quoteCache.set(cacheKey,{at:Date.now(),value:streamQuote});
       return streamQuote;
+    }
+    if(streamQuote.status==='NOT_SUBSCRIBED') {
+      const e=new Error('pair_not_in_current_siftingio_websocket_subscription_set_select_pair_to_activate');
+      e.statusCode=503;throw e;
     }
     if(!SIFTING_REST_FALLBACK_ENABLED) throw primaryError;
     try {
