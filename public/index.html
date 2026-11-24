@@ -627,6 +627,16 @@ body{color:#fff!important}
       <div class="forecastcell"><small>USD HEADLINE SCREEN</small><b id="fundamentalNewsBias">WAIT</b></div>
      </div>
      <div class="sentiment-footnote" id="fundamentalContextNote">Macro, event surprises and headline matches are research context only—not calibrated probability or trade votes.</div>
+     <div class="forecastgrid" style="margin-top:9px">
+      <div class="forecastcell"><small>BIS CENTRAL BANK POLICY RATE</small><b id="policySourceStatus">WAIT · SOURCE CHECKING</b></div>
+      <div class="forecastcell"><small>BASE CURRENCY POLICY RATE</small><b id="policyBaseRate">—</b></div>
+      <div class="forecastcell"><small>QUOTE CURRENCY POLICY RATE</small><b id="policyQuoteRate">—</b></div>
+      <div class="forecastcell"><small>POLICY RATE DIFFERENTIAL</small><b id="policyDifferential">—</b></div>
+      <div class="forecastcell"><small>BASE LAST CHANGE</small><b id="policyBaseLastChange">—</b></div>
+      <div class="forecastcell"><small>QUOTE LAST CHANGE</small><b id="policyQuoteLastChange">—</b></div>
+     </div>
+     <div class="sentiment-footnote" id="policyContextNote">BIS daily end-of-period policy-rate context. This is not a live rate announcement or an intraday signal.</div>
+     <div class="sentiment-footnote">Source: Bank for International Settlements (BIS), Central bank policy rates (WS_CBPOL). BIS source attribution is provided; see dataset terms.</div>
     </section>
     <div class="forecastgrid" style="margin-top:9px">
      <div class="forecastcell"><small>INDEPENDENT SOURCE · SIFTINGIO</small><b id="independentSourceStatus">API KEY REQUIRED</b></div>
@@ -1816,6 +1826,33 @@ body{color:#fff!important}
  
 
 
+
+function renderPolicyRateContext(context){
+  const value=context&&typeof context==='object'?context:{};
+  const usable=['FRESH_DAILY','STALE_DAILY'].includes(value.status);
+  const fmt=rate=>hasNumber(rate)?Number(rate).toFixed(3)+'%':'—';
+  const dateText=(date,change)=>date?(date+' · '+(hasNumber(change)?(Number(change)>0?'+':'')+Number(change)+' bp':'change unreported')):'No change in lookback';
+  setNodeText('policySourceStatus',usable
+    ?String(value.status).replaceAll('_',' ')+' · '+String(value.overallSourceStatus||'')
+    :'WAIT · SOURCE UNAVAILABLE');
+  setNodeText('policyBaseRate',String(value.baseCurrency||'—')+' · '+fmt(value.baseRatePercent));
+  setNodeText('policyQuoteRate',String(value.quoteCurrency||'—')+' · '+fmt(value.quoteRatePercent));
+  setNodeText('policyDifferential',hasNumber(value.differentialPercent)
+    ?(Number(value.differentialPercent)>0?'+':'')+Number(value.differentialPercent).toFixed(3)+' pp · '+String(value.differentialBias||'MIXED').replaceAll('_',' ')
+    :'—');
+  setNodeText('policyBaseLastChange',dateText(value.baseLastChangeDate,value.baseLastChangeBps));
+  setNodeText('policyQuoteLastChange',dateText(value.quoteLastChangeDate,value.quoteLastChangeBps));
+  setNodeText('policyContextNote',usable
+    ?String(value.baseCurrency||'')+' observation '+String(value.baseObservationDate||'—')+
+      ' · '+String(value.quoteCurrency||'')+' observation '+String(value.quoteObservationDate||'—')+
+      ' · 90d relative move '+(hasNumber(value.relativeMove90dBps)?Number(value.relativeMove90dBps)+' bp':'unavailable')+
+      ' · '+String(value.relativePolicyMove||'UNAVAILABLE').replaceAll('_',' ')+
+      '. BIS publishes daily end-of-period data around mid-week. Policy expectations may already be priced; context only.'
+    :'BIS daily policy-rate data unavailable or stale. No rate differential inferred.');
+  const node=$('#policySourceStatus');
+  if(node)node.style.color=usable?'#8ff0c6':'#ffe39a';
+}
+
 function renderFundamentalContext(context){
   const value=context&&typeof context==='object'?context:{};
   const global=value.globalRisk||{},events=value.economicSurprises||{},news=value.usdNews||{};
@@ -1912,6 +1949,7 @@ function renderShadowEngine(data){
   renderDirectionalSentiment(live.directionalSentiment,data.pair);
   renderCftcPositioning(live.marketContext&&live.marketContext.cftcPositioning);
   renderFundamentalContext(live.marketContext&&live.marketContext.fundamentals);
+  renderPolicyRateContext(live.marketContext&&live.marketContext.centralBankPolicy);
   if(live.independentSource){
    const independent=live.independentSource;
    setNodeText('independentSourceStatus',independent.status||'WAIT');
@@ -2082,6 +2120,7 @@ function renderShadowEngine(data){
    renderDirectionalSentiment(null,pairNow());
    renderCftcPositioning(null);
    renderFundamentalContext(null);
+   renderPolicyRateContext(null);
    setNodeText('shadowFinalGate','FINAL: WAIT · '+String(error.message||'engine_unavailable'));
   }finally{shadowEngineBusy=false;}
  }

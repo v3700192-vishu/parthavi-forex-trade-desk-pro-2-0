@@ -58,6 +58,15 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - No broker order execution is implemented.
 - EMA, RSI, MACD, ATR, Bollinger Bands and Wilder ADX 14 are computed from returned closed OHLC candles. Confirmed swing points, BOS/CHoCH, support/resistance, 20-bar breakout checks and ATR distance planning are displayed as analytical context only. Real traded FX volume is not inferred from tick volume.
 
+## Daily central-bank policy rates and rate differential
+
+- The API reads the official BIS WS_CBPOL daily end-of-period policy-rate series for the United States (US), euro area (XM), United Kingdom (GB), Japan (JP), Switzerland (CH), Australia (AU), New Zealand (NZ) and Canada (CA).
+- The daily series are requested separately by area, filtered to frequency D, unit 368 (per cent per annum), unit multiplier 0 and normal/free observations. The response is cached for six hours with a 400-day lookback to identify the last actual policy-rate change and an approximately 90-day move.
+- Pair policy differential is the base-currency policy rate minus the quote-currency policy rate. Example: EUR/USD = Euro-area policy rate minus US policy rate; USD/JPY = US policy rate minus Japanese policy rate.
+- BIS daily observations are end-of-period and are usually published around mid-week. Latest observation dates are retained per currency; one country's fresh date is not substituted for another's.
+- This is policy-rate and carry context, not a prediction of spot FX direction. Markets price future policy expectations; a current rate differential alone does not establish a trade signal or calibrated probability.
+- Attribution: Bank for International Settlements (BIS), Central bank policy rates, dataset WS_CBPOL. Data are reported directly to the BIS by member central banks. Rate definitions and permitted-use terms are available at https://data.bis.org/topics/CBPOL and https://data.bis.org/help/legal.
+
 ## Daily macro and economic-surprise context
 
 - The API caches five public FRED CSV series for six hours: DTWEXBGS (broad trade-weighted USD index), DGS2 and DGS10 (Treasury yields), VIXCLS (VIX), and DCOILWTICO (WTI crude oil).
