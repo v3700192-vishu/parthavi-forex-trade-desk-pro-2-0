@@ -29,6 +29,7 @@ Supported chart intervals: 5M, 15M, 30M, 1H and 4H.
 - `GET /api/forex/reference-rates` — daily ECB reference rates for the seven supported pairs, relayed by Frankfurter; reference context only, never a live signal
 - `GET /api/forex/fed-reference-rates` — Federal Reserve H.10 weekly-published daily observations, compared with ECB rates on the same observation date; reference validation only, never a live signal
 - `GET /api/forex/cot-positioning?pair=EUR/USD` — official CFTC Traders in Financial Futures futures-only positioning for the seven USD-major currency futures, with leveraged-fund and asset-manager net positions and 52-week percentiles
+- `GET /api/forex/central-bank-news?pair=EUR/USD` — RSS / Atom policy headlines from the Federal Reserve, ECB, Bank of England, Bank of Japan, SNB, RBA (media releases and speeches), RBNZ and Bank of Canada; heuristic research context only
 - `GET /api/forex/central-bank-policy?pair=EUR/USD` — BIS daily end-of-period policy rates for eight central banks, the base-minus-quote rate differential, recent 90-day policy-rate changes and observation freshness; higher-timeframe context only
 - `GET /api/forex/shadow-engine?pair=EUR/USD&timeframe=15M` — fixed-rule shadow direction, five-timeframe freshness/alignment and walk-forward research metrics; never a live trade signal
 
@@ -58,6 +59,15 @@ The browser subscribes to all seven pairs through Biquote SignalR (`/hubs/tick`)
 - Biquote is one indicative source, not independent source agreement. Therefore the forecast remains **WAIT** until independent corroboration, top-down timeframe checks, and out-of-sample probability calibration are implemented and validated.
 - No broker order execution is implemented.
 - EMA, RSI, MACD, ATR, Bollinger Bands and Wilder ADX 14 are computed from returned closed OHLC candles. Confirmed swing points, BOS/CHoCH, support/resistance, 20-bar breakout checks and ATR distance planning are displayed as analytical context only. Real traded FX volume is not inferred from tick volume.
+
+## Official central-bank news intelligence
+
+- Nine allowlisted official feeds cover eight currency authorities: Federal Reserve (USD), ECB (EUR), Bank of England (GBP), Bank of Japan (JPY), SNB (CHF), RBA media releases and speeches (AUD), RBNZ (NZD), and Bank of Canada (CAD).
+- Feeds are fetched independently with a 12-second timeout, 1.5 MB response cap, 15-minute cache, XML-root validation and final redirect-host validation. Headline article links must remain on the respective official bank domain.
+- RSS 2.0, Atom and RDF/RSS formats are supported. Items older than 30 days and future-dated articles are excluded.
+- Explicit rate hikes/cuts, clear hawkish/dovish language and explicit currency-support/selling intervention phrases are assigned a low-confidence research score. General releases, administrative notices and unknown wording remain unscored. The score is never a direct trade vote or probability.
+- The source table shows per-currency status and per-feed coverage, including partial failures. A missing or blocked source produces WAIT for that currency rather than a guessed neutral/positive/negative score.
+- Official feed pages: https://www.federalreserve.gov/feeds/press_monetary.xml ; https://www.ecb.europa.eu/rss/press.html ; https://www.bankofengland.co.uk/rss/news ; https://www.boj.or.jp/en/rss/whatsnew.xml ; https://www.snb.ch/public/rss/en/pressrel ; https://www.rba.gov.au/rss/rss-cb-media-releases.xml ; https://www.rba.gov.au/rss/rss-cb-speeches.xml ; https://www.rbnz.govt.nz/feeds/news ; https://www.bankofcanada.ca/content_type/press-releases/feed/.
 
 ## Daily central-bank policy rates and rate differential
 
