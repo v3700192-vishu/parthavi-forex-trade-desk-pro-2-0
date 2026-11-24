@@ -36,7 +36,7 @@ const makeVoteState = (timeframe, bullish, bearish, neutral) => {
   ['trend', 'momentum', 'macd', 'recentPrice'].forEach((key, index) => {
     if (values[index]) votes[key] = values[index];
   });
-  return { timeframe, votes };
+  return { timeframe, votes, freshness: 'FRESH' };
 };
 const bullishSentiment = aggregateDirectionalSentiment(
   timeframesForVotes.map(timeframe => makeVoteState(timeframe, 4, 0, 0))
@@ -67,6 +67,17 @@ assert.equal(partialSentiment.direction, 'MIXED', 'one timeframe alone must not 
 assert.equal(partialSentiment.coveragePercent, 20);
 assert.equal(partialSentiment.missingVotes, 16);
 assert.equal(partialSentiment.expectedVotes, 20);
+
+const staleTimeframeSentiment = aggregateDirectionalSentiment([
+  ...timeframesForVotes.slice(0, 4).map(timeframe => makeVoteState(timeframe, 4, 0, 0)),
+  { ...makeVoteState('4H', 0, 4, 0), freshness: 'STALE' }
+]);
+assert.equal(staleTimeframeSentiment.direction, 'BULLISH');
+assert.equal(staleTimeframeSentiment.availableVotes, 16);
+assert.equal(staleTimeframeSentiment.coveragePercent, 80);
+assert.equal(staleTimeframeSentiment.timeframes[4].direction, 'WAIT');
+assert.equal(staleTimeframeSentiment.timeframes[4].availableVotes, 0);
+assert.equal(staleTimeframeSentiment.timeframes[4].dataFresh, false);
 
 const noSentiment = aggregateDirectionalSentiment([]);
 assert.equal(noSentiment.direction, 'MIXED');
