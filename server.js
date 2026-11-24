@@ -142,7 +142,9 @@ function sleepMs(ms) {
   return new Promise(resolve=>setTimeout(resolve,Math.max(0,ms)));
 }
 function numericHeader(headers,name) {
-  const value=Number(headers.get(name));
+  const raw=headers.get(name);
+  if(raw===null||raw==='') return null;
+  const value=Number(raw);
   return Number.isFinite(value)?value:null;
 }
 function scheduleSiftingRest(work) {
