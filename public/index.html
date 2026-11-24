@@ -627,6 +627,17 @@ body{color:#fff!important}
       <div class="forecastcell"><small>USD HEADLINE SCREEN</small><b id="fundamentalNewsBias">WAIT</b></div>
      </div>
      <div class="sentiment-footnote" id="fundamentalContextNote">Macro, event surprises and headline matches are research context only—not calibrated probability or trade votes.</div>
+     <div class="forecastgrid" style="margin-top:9px">
+      <div class="forecastcell"><small>BIS CENTRAL BANK POLICY BIAS</small><b id="centralBankPolicyBias">WAIT · SOURCE CHECKING</b></div>
+      <div class="forecastcell"><small>BASE CURRENCY · POLICY RATE</small><b id="centralBankBaseRate">—</b></div>
+      <div class="forecastcell"><small>QUOTE CURRENCY · POLICY RATE</small><b id="centralBankQuoteRate">—</b></div>
+      <div class="forecastcell"><small>CURRENT RATE DIFFERENTIAL</small><b id="centralBankRateDifferential">—</b></div>
+      <div class="forecastcell"><small>12M POLICY IMPULSE GAP</small><b id="centralBankPolicyImpulse">—</b></div>
+      <div class="forecastcell"><small>POLICY DATA FRESHNESS</small><b id="centralBankPolicyFreshness">WAIT</b></div>
+     </div>
+     <div class="sentiment-footnote" id="centralBankPolicyChanges">Waiting for the eight central-bank policy-rate series…</div>
+     <div class="sentiment-footnote" id="centralBankPolicyNote">BIS policy rates are a higher-timeframe reference, not an intraday signal or calibrated probability.</div>
+
     </section>
     <div class="forecastgrid" style="margin-top:9px">
      <div class="forecastcell"><small>INDEPENDENT SOURCE · SIFTINGIO</small><b id="independentSourceStatus">API KEY REQUIRED</b></div>
@@ -1836,6 +1847,35 @@ function renderFundamentalContext(context){
   if(node)node.style.color=macroBias==='BULLISH'?'#8ff0c6':macroBias==='BEARISH'?'#ff9ba2':'#ffe39a';
 }
 
+function renderCentralBankPolicy(context){
+  const value=context&&typeof context==='object'?context:{};
+  const ready=value.status==='FRESH'&&value.base&&value.quote;
+  const bias=ready?value.policyBias||'MIXED':'WAIT';
+  const formatRate=side=>side&&hasNumber(side.currentRatePercent)
+    ?Number(side.currentRatePercent).toFixed(3)+'% · '+String(side.observationDate||'—'):'—';
+  const formatPoints=number=>hasNumber(number)
+    ?(Number(number)>=0?'+':'')+Number(number).toFixed(3)+' pp':'—';
+  setNodeText('centralBankPolicyBias',bias);
+  setNodeText('centralBankBaseRate',formatRate(value.base));
+  setNodeText('centralBankQuoteRate',formatRate(value.quote));
+  setNodeText('centralBankRateDifferential',formatPoints(value.currentRateDifferentialPercentagePoints));
+  setNodeText('centralBankPolicyImpulse',formatPoints(value.twelveMonthPolicyImpulseDifferentialPercentagePoints));
+  setNodeText('centralBankPolicyFreshness',String(value.status||'UNAVAILABLE').replaceAll('_',' '));
+  const formatChange=side=>{
+    if(!side)return 'unavailable';
+    const change=side.lastChange;
+    return change
+      ?String(side.centralBank||side.currency)+' '+formatPoints(change.changePercentagePoints)+' on '+String(change.effectiveDate||'—')
+      :'No rate change in the available observation window for '+String(side.currency||'—');
+  };
+  setNodeText('centralBankPolicyChanges',formatChange(value.base)+' · '+formatChange(value.quote));
+  setNodeText('centralBankPolicyNote',ready
+    ?'BIS daily rates · '+String(value.base.centralBank||value.baseCurrency)+' and '+String(value.quote.centralBank||value.quoteCurrency)+'. Policy impulse is the difference between their 12-month rate changes. Current differential is carry context only. Neither is an intraday trade signal or calibrated probability.'
+    :'BIS daily policy data missing, stale or incomplete. No policy direction is inferred.');
+  const node=$('#centralBankPolicyBias');
+  if(node)node.style.color=bias==='BULLISH'?'#8ff0c6':bias==='BEARISH'?'#ff9ba2':'#ffe39a';
+}
+
 function renderCftcPositioning(context){
   const value=context&&typeof context==='object'?context:{};
   const valid=['FRESH_WEEKLY','STALE_WEEKLY'].includes(value.status);
@@ -1912,6 +1952,7 @@ function renderShadowEngine(data){
   renderDirectionalSentiment(live.directionalSentiment,data.pair);
   renderCftcPositioning(live.marketContext&&live.marketContext.cftcPositioning);
   renderFundamentalContext(live.marketContext&&live.marketContext.fundamentals);
+  renderCentralBankPolicy(live.marketContext&&live.marketContext.centralBankPolicy);
   if(live.independentSource){
    const independent=live.independentSource;
    setNodeText('independentSourceStatus',independent.status||'WAIT');
